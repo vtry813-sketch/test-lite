@@ -40,30 +40,37 @@ cmd({
     const time = moment.tz(timeZone).format('hh:mm:ss A');
     const date = moment.tz(timeZone).format('DD/MM/YYYY');
     const uptime = formatUptime(process.uptime());
-    const cpuModel = os.cpus()[0].model;
+    const cpuModel = os.cpus()[0]?.model || 'N/A';
     const totalRam = os.totalmem();
     const usedRam = totalRam - os.freemem();
     const ram = `${formatSize(usedRam)}/${formatSize(totalRam)}`;
-    const ping = Math.floor(Math.random() * 50) + 10; // fake small ping for display
-    const mode = config.MODE === 'public' ? 'PUBLIC' : 'PRIVATE';
-    const totalCommands = commands.filter(a => a.pattern).length;
+    const ping = Math.floor(Math.random() * 50) + 10; 
+    const mode = (config.MODE === 'public') ? 'PUBLIC' : 'PRIVATE';
+    
+    // Safety check for commands array
+    const totalCommands = Array.isArray(commands) ? commands.filter(a => a.pattern).length : 0;
 
     // Group commands by category
     const commandsByCategory = {};
-    for (const command of commands) {
-      if (command.category && !command.dontAdd && command.pattern) {
-        const cat = command.category.toUpperCase();
-        if (!commandsByCategory[cat]) commandsByCategory[cat] = [];
-        commandsByCategory[cat].push(command.pattern.split('|')[0]);
+    if (Array.isArray(commands)) {
+      for (const command of commands) {
+        if (command.category && !command.dontAdd && command.pattern) {
+          const cat = command.category.toUpperCase();
+          if (!commandsByCategory[cat]) commandsByCategory[cat] = [];
+          commandsByCategory[cat].push(command.pattern.split('|')[0]);
+        }
       }
     }
 
-    // HEADER
+    // SAFE USERNAME: Handles cases where sender might be undefined
+    const userName = pushName || (sender ? sender.split('@')[0] : 'User');
+
+    // HEADER - Removed .toString() as template literals handle conversion automatically
     let menu = `╭══〘〘 *${monospace(config.BOT_NAME || 'POP KID-MD')}* 〙〙═⊷
 ┃❍ *Mode:* ${monospace(mode)}
 ┃❍ *Prefix:* [ ${monospace(prefix)} ]
-┃❍ *User:* ${monospace(pushName || sender.split('@')[0])}
-┃❍ *Plugins:* ${monospace(totalCommands.toString())}
+┃❍ *User:* ${monospace(userName)}
+┃❍ *Plugins:* ${monospace(totalCommands)}
 ┃❍ *Uptime:* ${monospace(uptime)}
 ┃❍ *Date:* ${monospace(date)}
 ┃❍ *Time:* ${monospace(time)}
@@ -84,15 +91,22 @@ cmd({
       menu += `╰━━━━━━━━━━━━━━━━━⊷`;
     }
 
-    menu += `\n\n> *${config.BOT_NAME || 'POP KID-MD'}* © 𝟸𝟶𝟸𝟼 🇰🇪\n> *ᴘᴏᴘᴋɪᴅ ᴘʀᴏᴊᴇᴄᴛs*`;
+    menu += `\n\n> *${config.BOT_NAME || 'POP KID-MD'}* © 2026 🇰🇪\n> *ᴘᴏᴘᴋɪᴅ ᴘʀᴏᴊᴇᴄᴛs*`;
 
     // Read local image buffer
     const menuImagePath = path.resolve('./popkid/menu.jpg');
-    const imageBuffer = await fs.promises.readFile(menuImagePath);
+    let imageBuffer;
+    try {
+        imageBuffer = await fs.promises.readFile(menuImagePath);
+    } catch (e) {
+        console.error("Image not found at path:", menuImagePath);
+        // Fallback if image is missing to prevent total crash
+        imageBuffer = Buffer.alloc(0); 
+    }
 
     // SEND MESSAGE
     await conn.sendMessage(from, {
-      image: { path: menuImagePath },
+      image: { url: menuImagePath }, // Using url: path is often more stable in Baileys
       caption: menu,
       contextInfo: {
         mentionedJid: [sender],
@@ -102,7 +116,7 @@ cmd({
           title: 'POP KID-MD V2 ADVANCED',
           body: 'Powered by POPKID TECH',
           thumbnail: imageBuffer,
-          sourceUrl: 'https://whatsapp.com/channel/0029Vag99462UPBF93786o1X',
+          sourceUrl: 'https://whatsapp.com/channel/0029VacgxK96hENmSRMRxx1r',
           mediaType: 1,
           renderLargerThumbnail: true
         }
@@ -110,7 +124,7 @@ cmd({
     }, { quoted: mek });
 
   } catch (e) {
-    console.error(e);
+    console.error("Menu Error:", e);
     reply(`❌ Error: ${e.message}`);
   }
 });

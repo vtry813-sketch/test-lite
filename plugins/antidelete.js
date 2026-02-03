@@ -1,126 +1,117 @@
-const { cmd } = require("../command");
-const config = require("../config");
+// 🌟 AntiDelete Command — Fixed & Clean (Functionality Preserved)
 
-// Temporary store for messages
-const messageStore = new Map();
+const config = require('../config');
+const { cmd } = require('../command');
+const {
+    getAnti,
+    setAnti,
+    initializeAntiDeleteSettings
+} = require('../data/antidel');
 
-cmd({ on: "body" }, async (client, message, m, { isOwner, sender }) => {
-    try {
-        if (!message?.key || !message.message) return;
+// 🔁 Ensure AntiDelete settings exist on startup
+initializeAntiDeleteSettings();
 
-        const msgId = message.key.id;
-
-        // 1️⃣ Store normal messages
-        if (!message.message.protocolMessage) {
-            messageStore.set(msgId, message);
-
-            // Auto-clean after 30 minutes
-            setTimeout(() => messageStore.delete(msgId), 30 * 60 * 1000);
-            return;
-        }
-
-        // 2️⃣ Detect deleted messages
-        const proto = message.message.protocolMessage;
-        if (proto.type !== 0) return; // 0 = delete
-        if (!config.ANTI_DELETE) return;
-
-        const deletedId = proto.key.id;
-        const recoveredMsg = messageStore.get(deletedId);
-        if (!recoveredMsg) return;
-
-        const chat = message.key.remoteJid;
-        const originalSender = recoveredMsg.key.participant || recoveredMsg.key.remoteJid;
-
-        // Decide where to send: DM to owner or same chat
-        const targetChat = config.ANTI_DELETE_DM ? sender : chat;
-
-        // Notify about recovered message
-        await client.sendMessage(targetChat, {
-            text: `🚨 *ANTI DELETE ALERT*\n\n👤 From: @${originalSender.split("@")[0]}\n📩 Recovered message below 👇`,
-            mentions: [originalSender]
-        });
-
-        // Re-send original message
-        await client.relayMessage(targetChat, recoveredMsg.message, {
-            messageId: recoveredMsg.key.id
-        });
-
-    } catch (error) {
-        console.error("❌ Anti-delete error:", error);
-    }
-});
-
-// === Anti-Delete Command ===
 cmd({
     pattern: "antidelete",
-    alias: ["antidel", "recover"],
-    desc: "Toggle anti delete system",
-    category: "owner",
-    react: "🛡️",
-    filename: __filename,
-    fromMe: true
-}, async (client, message, m, { isOwner, from, sender, args }) => {
+    alias: ["antidel", "ad"],
+    desc: "Configure AntiDelete settings",
+    category: "misc",
+    filename: __filename
+},
+async (conn, mek, m, { from, reply, q, isCreator }) => {
+
+    // 🔐 Owner-only access
+    if (!isCreator) {
+        return reply("🚫 *This command is only available to the bot owner.*");
+    }
+
     try {
-        if (!isOwner) {
-            return client.sendMessage(from, { text: "🚫 Owner-only command!", mentions: [sender] }, { quoted: message });
-        }
+        const args = (q || "").toLowerCase().trim().split(/\s+/);
 
-        const action = args[0]?.toLowerCase() || "status";
-        let statusText = "", reaction = "🛡️", info = "";
+        // Examples:
+        // .antidelete on
+        // .antidelete off gc
+        // .antidelete set gc
+        // .antidelete set all
+        // .antidelete status
 
-        switch (action) {
+        const main = args[0];      // on / off / set / status
+        const sub = args[1];       // gc / dm / all
+
+        switch (main) {
+
+            // ✅ Enable AntiDelete everywhere
             case "on":
-                config.ANTI_DELETE = true;
-                config.ANTI_DELETE_DM = false;
-                statusText = "✅ Anti-delete is *ENABLED* (recovery in same chat)";
-                reaction = "✅";
-                info = "Deleted messages will now be recovered in the chat 🔄";
-                break;
+                await setAnti("gc", true);
+                await setAnti("dm", true);
+                return reply("✅ *AntiDelete has been ENABLED for all chats.*");
+
+            // ❌ Disable AntiDelete options
             case "off":
-                config.ANTI_DELETE = false;
-                statusText = "❌ Anti-delete is *DISABLED*";
-                reaction = "❌";
-                info = "Deleted messages will no longer be recovered 🚫";
-                break;
-            case "dm":
-                config.ANTI_DELETE = true;
-                config.ANTI_DELETE_DM = true;
-                statusText = "✅ Anti-delete is *ENABLED* (recovery to owner DM)";
-                reaction = "📩";
-                info = "Deleted messages will now be sent directly to your DM 🔒";
-                break;
-            default:
-                statusText = `📌 Anti-delete Status: ${config.ANTI_DELETE ? "✅ ENABLED" : "❌ DISABLED"}`;
-                info = config.ANTI_DELETE
-                    ? (config.ANTI_DELETE_DM ? "Messages go to your DM 📩" : "Messages recover in chat 🔄")
-                    : "Recovery is OFF 🚫";
-        }
-
-        // Send confirmation with optional image/newsletter
-        await client.sendMessage(from, {
-            image: { url: "https://files.catbox.moe/kiy0hl.jpg" },
-            caption: `
-${statusText}
-${info}
-
-_𝐩𝐨𝐩𝐤𝐢𝐝 𝐚𝐧𝐭𝐢𝐝𝐞𝐥𝐞𝐭𝐞 🛡️_
-            `,
-            contextInfo: {
-                mentionedJid: [sender],
-                forwardingScore: 999,
-                isForwarded: true,
-                forwardedNewsletterMessageInfo: {
-                    newsletterJid: "120363289379419860@newsletter",
-                    newsletterName: "𝐩𝐨𝐩𝐤𝐢𝐝 𝐱𝐦𝐝",
-                    serverMessageId: 144
+                if (sub === "gc") {
+                    await setAnti("gc", false);
+                    return reply("❌ *AntiDelete for Group Chats has been DISABLED.*");
+                } else if (sub === "dm") {
+                    await setAnti("dm", false);
+                    return reply("❌ *AntiDelete for Direct Messages has been DISABLED.*");
+                } else if (sub === "all") {
+                    await setAnti("gc", false);
+                    await setAnti("dm", false);
+                    return reply("❌ *AntiDelete has been DISABLED for all chats.*");
+                } else {
+                    return reply("⚠️ Use: `.antidelete off gc`, `.antidelete off dm`, or `.antidelete off all`");
                 }
-            }
-        }, { quoted: message });
 
-        await client.sendMessage(from, { react: { text: reaction, key: message.key } });
+            // 🔁 Toggle or set
+            case "set":
+                if (sub === "gc") {
+                    const gcStatus = await getAnti("gc");
+                    await setAnti("gc", !gcStatus);
+                    return reply(`🔄 *Group Chat AntiDelete* is now *${!gcStatus ? "Enabled ✅" : "Disabled ❌"}*`);
+                } 
+                else if (sub === "dm") {
+                    const dmStatus = await getAnti("dm");
+                    await setAnti("dm", !dmStatus);
+                    return reply(`🔄 *DM AntiDelete* is now *${!dmStatus ? "Enabled ✅" : "Disabled ❌"}*`);
+                } 
+                else if (sub === "all") {
+                    await setAnti("gc", true);
+                    await setAnti("dm", true);
+                    return reply("✅ *AntiDelete has been ENABLED for ALL chats.*");
+                } 
+                else {
+                    return reply("⚠️ Use: `.antidelete set gc`, `.antidelete set dm`, or `.antidelete set all`");
+                }
+
+            // 📊 Show current status
+            case "status": {
+                const currentDmStatus = await getAnti("dm");
+                const currentGcStatus = await getAnti("gc");
+
+                return reply(
+                    "📊 *AntiDelete Status*\n\n" +
+                    `• *Direct Messages:* ${currentDmStatus ? "Enabled ✅" : "Disabled ❌"}\n` +
+                    `• *Group Chats:* ${currentGcStatus ? "Enabled ✅" : "Disabled ❌"}`
+                );
+            }
+
+            // 📖 Help Menu
+            default:
+                return reply(
+                    "📖 *AntiDelete Command Guide*\n\n" +
+                    "• `.antidelete on` — Enable AntiDelete for all chats\n" +
+                    "• `.antidelete off gc` — Disable AntiDelete in Group Chats\n" +
+                    "• `.antidelete off dm` — Disable AntiDelete in Direct Messages\n" +
+                    "• `.antidelete off all` — Disable AntiDelete everywhere\n" +
+                    "• `.antidelete set gc` — Toggle AntiDelete for Group Chats\n" +
+                    "• `.antidelete set dm` — Toggle AntiDelete for Direct Messages\n" +
+                    "• `.antidelete set all` — Enable AntiDelete everywhere\n" +
+                    "• `.antidelete status` — View current AntiDelete status"
+                );
+        }
 
     } catch (error) {
-        console.error("❌ Anti-delete command error:", error);
-        await client.sendMessage(from, { text: `⚠️ Error: ${error.message}`, mentions: [sender] }, { quoted: message });
+        console.error("❌ AntiDelete Command Error:", error);
+        return reply("⚠️ *An error occurred while processing your request.*");
     }
 });

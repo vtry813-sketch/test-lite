@@ -4,108 +4,58 @@ if (fs.existsSync('config.env')) require('dotenv').config({ path: './config.env'
 function convertToBool(text, fault = 'true') {
     return text === fault ? true : false;
 }
+
 module.exports = {
-SESSION_ID: process.env.SESSION_ID || "POPKID;;;HcURgQQT#el1w53_DkYDDW13cEvqw0q80vHfOfnyZO_cyAL0mAUU",
-// add your Session Id 
-AUTO_STATUS_SEEN: process.env.AUTO_STATUS_SEEN || "true",
-// make true or false status auto seen
-AUTO_STATUS_REPLY: process.env.AUTO_STATUS_REPLY || "false",
-// make true if you want auto reply on status 
-AUTO_STATUS_REACT: process.env.AUTO_STATUS_REACT || "true",
-//anticall on/off
-ANTI_CALL: process.env.ANTI_CALL || "true",
-// make true if you want auto reply on status 
-CUSTOM_STATUS_EMOJIS: process.env.CUSTOM_STATUS_EMOJIS || "❤️,✨,🔥,💯,✅,👑",
-//statusreaction
-AUTO_STATUS_MSG: process.env.AUTO_STATUS_MSG || "*𝐏𝐎𝐏𝐊𝐈𝐃 𝐌𝐃 𝐕𝐈𝐄𝐖𝐄𝐃✅*",
-// set the auto reply massage on status reply  
-ANTI_DELETE: process.env.ANTI_DELETE || "false",
-// set true false for anti delete     
-ANTI_DEL_PATH: process.env.ANTI_DEL_PATH || "log", 
-// change it to 'same' if you want to resend deleted message in same chat     
-WELCOME: process.env.WELCOME || "false",
-// true if want welcome and goodbye msg in groups    
-ADMIN_EVENTS: process.env.ADMIN_EVENTS || "true",
-// make true to know who dismiss or promoted a member in group. 
-LINK_WHITELIST: "youtube.com,github.com", 
-LINK_ACTION:  "mute", // "kick", "mute", or "none"
-LINK_WARN_LIMIT: 3, // Number of warnings before action
-ANTI_LINK: process.env.ANTI_LINK || "false",
-// make anti link true,false for groups 
-MENTION_REPLY: process.env.MENTION_REPLY || "false",
-// make true if want auto voice reply if someone menetion you 
-MENU_IMAGE_URL: process.env.MENU_IMAGE_URL || "https://files.catbox.moe/d1stg5.jpg",
-// add custom menu and mention reply image url
-PREFIX: process.env.PREFIX || ".",
-    
-AUTO_BIO: process.env.AUTO_BIO || "true",// Replace with your authorized numbers
-    
-  // Timezone for the auto-bio feature
-TIME_ZONE: process.env.TIME_ZONE || "Asia/Kolkata",  // Change to your preferred timezone
-// add your prifix for bot   
-BOT_NAME: process.env.BOT_NAME || "𝐏𝐎𝐏𝐊𝐈𝐃 𝐌𝐃",
-// add bot namw here for menu
-STICKER_NAME: process.env.STICKER_NAME || "𝐏𝐎𝐏𝐊𝐈𝐃 𝐌𝐃",
-// type sticker pack name 
-CUSTOM_REACT: process.env.CUSTOM_REACT || "false",
-// make this true for custum emoji react    
-CUSTOM_REACT_EMOJIS: process.env.CUSTOM_REACT_EMOJIS || "💝,💖,💗,❤️‍🩹,❤️,🧡,💛,💚,💙,💜,🤎,🖤,🤍",
-// chose custom react emojis by yourself 
-DELETE_LINKS: process.env.DELETE_LINKS || "true",
-// automatic delete links witho remove member 
-OWNER_NUMBER: process.env.OWNER_NUMBER || "254732297194",
-// add your bot owner number
-OWNER_NAME: process.env.OWNER_NAME || "𝐏𝐎𝐏𝐊𝐈𝐃",
-// add bot owner name
-DESCRIPTION: process.env.DESCRIPTION || "*𝙿𝙾𝙿𝙺𝙸𝙳 𝚇𝙼𝙳 𝙱𝙾𝚃😇*",
-// add bot owner name    
-ALIVE_IMG: process.env.ALIVE_IMG || "https://files.catbox.moe/d1stg5.jpg",
-// add img for alive msg
-LIVE_MSG: process.env.LIVE_MSG || "> 𝐏𝐎𝐏𝐊𝐈𝐃 𝐌𝐃 𝐁𝐎𝐓😇",
-// add alive msg here 
-READ_MESSAGE: process.env.READ_MESSAGE || "false",
-// Turn true or false for automatic read msgs
-AUTO_REACT: process.env.AUTO_REACT || "false",
-// make this true or false for auto react on all msgs
-ANTI_BAD: process.env.ANTI_BAD || "true",
-// false or true for anti bad words  
-MODE: process.env.MODE || "public",
-// make bot public-private-inbox-group 
-ANTI_LINK_KICK: process.env.ANTI_LINK_KICK || "false",
-// make anti link true,false for groups 
-AUTO_STICKER: process.env.AUTO_STICKER || "false",
-// make true for automatic stickers 
-AUTO_REPLY: process.env.AUTO_REPLY || "false",
-// ================= ANTI LINK MODE MENU =================
+    SESSION_ID: process.env.SESSION_ID || "POPKID;;;HcURgQQT#el1w53_DkYDDW13cEvqw0q80vHfOfnyZO_cyAL0mAUU",
+    AUTO_STATUS_SEEN: process.env.AUTO_STATUS_SEEN || "true",
+    AUTO_STATUS_REPLY: process.env.AUTO_STATUS_REPLY || "false",
+    AUTO_STATUS_REACT: process.env.AUTO_STATUS_REACT || "true",
+    ANTI_CALL: process.env.ANTI_CALL || "false",
+    CUSTOM_STATUS_EMOJIS: process.env.CUSTOM_STATUS_EMOJIS || "❤️,✨,🔥,💯,👑",
+    AUTO_STATUS_MSG: process.env.AUTO_STATUS_MSG || "*𝐏𝐎𝐏𝐊𝐈𝐃 𝐌𝐃 𝐕𝐈𝐄𝐖𝐄𝐃✅*",
 
-// Controls what happens when a link is detected
-// Options: warn | delete | kick
-ANTI_LINK_MODE: process.env.ANTI_LINK_MODE || "warn",
+    // ====== Anti-Delete Config ======
+    ANTI_DELETE: process.env.ANTI_DELETE || "false",       // true/false to enable anti-delete
+    ANTI_DELETE_DM: process.env.ANTI_DELETE_DM || "false", // true = send recovered messages to owner DM, false = same chat
+    ANTI_DEL_PATH: process.env.ANTI_DEL_PATH || "log",     // optional path for logging recovered messages
 
-// Optional: warning message text
-ANTI_LINK_WARN_MSG: process.env.ANTI_LINK_WARN_MSG || 
-"⚠️ Links are not allowed in this group.",
-
-// Optional: kick message text
-ANTI_LINK_KICK_MSG: process.env.ANTI_LINK_KICK_MSG || 
-"🚪 You have been removed for sending links.",
-
-// Optional: delete message notice
-ANTI_LINK_DELETE_MSG: process.env.ANTI_LINK_DELETE_MSG || 
-"🗑️ Link message deleted.",
-// make true or false automatic text reply 
-ALWAYS_ONLINE: process.env.ALWAYS_ONLINE || "true",
-// maks true for always online 
-PUBLIC_MODE: process.env.PUBLIC_MODE || "true",
-// make false if want private mod
-AUTO_TYPING: process.env.AUTO_TYPING || "true",
-// true for automatic show typing   
-READ_CMD: process.env.READ_CMD || "false",
-// true if want mark commands as read 
-DEV: process.env.DEV || "254732297194",
-//replace with your whatsapp number        
-ANTI_VV: process.env.ANTI_VV || "true",
-// true for anti once view 
-AUTO_RECORDING: process.env.AUTO_RECORDING || "false"
-// make it true for auto recoding 
+    WELCOME: process.env.WELCOME || "false",
+    ADMIN_EVENTS: process.env.ADMIN_EVENTS || "true",
+    LINK_WHITELIST: "youtube.com,github.com",
+    LINK_ACTION: "mute",
+    LINK_WARN_LIMIT: 3,
+    ANTI_LINK: process.env.ANTI_LINK || "false",
+    MENTION_REPLY: process.env.MENTION_REPLY || "false",
+    MENU_IMAGE_URL: process.env.MENU_IMAGE_URL || "https://files.catbox.moe/d1stg5.jpg",
+    PREFIX: process.env.PREFIX || ".",
+    AUTO_BIO: process.env.AUTO_BIO || "true",
+    TIME_ZONE: process.env.TIME_ZONE || "Asia/Kolkata",
+    BOT_NAME: process.env.BOT_NAME || "𝐏𝐎𝐏𝐊𝐈𝐃 𝐌𝐃",
+    STICKER_NAME: process.env.STICKER_NAME || "𝐏𝐎𝐏𝐊𝐈𝐃 𝐌𝐃",
+    CUSTOM_REACT: process.env.CUSTOM_REACT || "false",
+    CUSTOM_REACT_EMOJIS: process.env.CUSTOM_REACT_EMOJIS || "💝,💖,💗,❤️‍🩹,❤️,🧡,💛,💚,💙,💜,🤎,🖤,🤍",
+    DELETE_LINKS: process.env.DELETE_LINKS || "true",
+    OWNER_NUMBER: process.env.OWNER_NUMBER || "254732297194",
+    OWNER_NAME: process.env.OWNER_NAME || "𝐏𝐎𝐏𝐊𝐈𝐃",
+    DESCRIPTION: process.env.DESCRIPTION || "*𝙿𝙾𝙿𝙺𝙸𝙳 𝚇𝙼𝙳 𝙱𝙾𝚃😇*",
+    ALIVE_IMG: process.env.ALIVE_IMG || "https://files.catbox.moe/d1stg5.jpg",
+    LIVE_MSG: process.env.LIVE_MSG || "> 𝐏𝐎𝐏𝐊𝐈𝐃 𝐌𝐃 𝐁𝐎𝐓😇",
+    READ_MESSAGE: process.env.READ_MESSAGE || "false",
+    AUTO_REACT: process.env.AUTO_REACT || "false",
+    ANTI_BAD: process.env.ANTI_BAD || "true",
+    MODE: process.env.MODE || "public",
+    ANTI_LINK_KICK: process.env.ANTI_LINK_KICK || "false",
+    AUTO_STICKER: process.env.AUTO_STICKER || "false",
+    AUTO_REPLY: process.env.AUTO_REPLY || "false",
+    ANTI_LINK_MODE: process.env.ANTI_LINK_MODE || "warn",
+    ANTI_LINK_WARN_MSG: process.env.ANTI_LINK_WARN_MSG || "⚠️ Links are not allowed in this group.",
+    ANTI_LINK_KICK_MSG: process.env.ANTI_LINK_KICK_MSG || "🚪 You have been removed for sending links.",
+    ANTI_LINK_DELETE_MSG: process.env.ANTI_LINK_DELETE_MSG || "🗑️ Link message deleted.",
+    ALWAYS_ONLINE: process.env.ALWAYS_ONLINE || "true",
+    PUBLIC_MODE: process.env.PUBLIC_MODE || "true",
+    AUTO_TYPING: process.env.AUTO_TYPING || "true",
+    READ_CMD: process.env.READ_CMD || "false",
+    DEV: process.env.DEV || "254732297194",
+    ANTI_VV: process.env.ANTI_VV || "true",
+    AUTO_RECORDING: process.env.AUTO_RECORDING || "false"
 };

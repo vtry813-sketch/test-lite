@@ -76,6 +76,23 @@ ANTI_LINK_KICK: process.env.ANTI_LINK_KICK || "false",
 AUTO_STICKER: process.env.AUTO_STICKER || "false",
 // make true for automatic stickers 
 AUTO_REPLY: process.env.AUTO_REPLY || "false",
+// ================= ANTI LINK MODE MENU =================
+
+// Controls what happens when a link is detected
+// Options: warn | delete | kick
+ANTI_LINK_MODE: process.env.ANTI_LINK_MODE || "warn",
+
+// Optional: warning message text
+ANTI_LINK_WARN_MSG: process.env.ANTI_LINK_WARN_MSG || 
+"⚠️ Links are not allowed in this group.",
+
+// Optional: kick message text
+ANTI_LINK_KICK_MSG: process.env.ANTI_LINK_KICK_MSG || 
+"🚪 You have been removed for sending links.",
+
+// Optional: delete message notice
+ANTI_LINK_DELETE_MSG: process.env.ANTI_LINK_DELETE_MSG || 
+"🗑️ Link message deleted.",
 // make true or false automatic text reply 
 ALWAYS_ONLINE: process.env.ALWAYS_ONLINE || "true",
 // maks true for always online 

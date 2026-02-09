@@ -8,7 +8,7 @@ async function getBuffer(url) {
 }
 
 cmd({
-    pattern: "popkidplay",
+    pattern: "play",
     desc: "Download song from YouTube",
     category: "downloader",
     filename: __filename

@@ -30,7 +30,7 @@ const formatUptime = (seconds) => {
 
 // MAIN MENU COMMAND
 cmd({
-    pattern: 'menu',
+    pattern: 'menu2',
     alias: ['help', 'allmenu'],
     react: '🌸',
     category: 'main',

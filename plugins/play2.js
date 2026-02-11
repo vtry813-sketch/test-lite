@@ -22,7 +22,7 @@ cmd({
         let title = "";
         let thumbnail = "";
 
-        // 🔍 If not link → search YouTube
+        // 🔍 search if not link
         if (!query.startsWith("http")) {
             const search = await yts(query);
             if (!search.videos.length) return reply("❌ Song not found");
@@ -33,25 +33,30 @@ cmd({
             thumbnail = video.thumbnail;
         }
 
-        // 🎵 Gifted MP3 API
+        // 🎵 Gifted download
         const apiUrl = `https://api.giftedtech.co.ke/api/download/dlmp3?apikey=gifted&url=${encodeURIComponent(videoUrl)}`;
-        const response = await fetch(apiUrl);
-        const json = await response.json();
+        const res = await fetch(apiUrl);
+        const json = await res.json();
 
         if (!json.success || !json.result) {
             return reply("❌ Failed to download audio");
         }
 
+        const { download_url } = json.result;
         const speed = Date.now() - start;
 
+        // send preview
         await conn.sendMessage(from, {
             image: { url: thumbnail || json.result.thumbnail },
             caption: `🎧 *${title || json.result.title}*\n⚡ Speed: ${speed}ms`
         });
 
+        // ✅ send audio correctly for WhatsApp
         await conn.sendMessage(from, {
-            audio: { url: json.result.download_url },
-            mimetype: "audio/mpeg"
+            audio: { url: download_url },
+            mimetype: "audio/mpeg",
+            fileName: `${title || json.result.title}.mp3`,
+            ptt: false
         });
 
     } catch (err) {

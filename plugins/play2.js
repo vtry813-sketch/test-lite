@@ -3,7 +3,7 @@ const fetch = require('node-fetch');
 const yts = require('yt-search');
 
 cmd({
-    pattern: "play2",
+    pattern: "play3",
     desc: "Download YouTube song (mp3)",
     category: "music",
     react: "🎵",
@@ -22,7 +22,7 @@ cmd({
         let title = "";
         let thumbnail = "";
 
-        // 🔍 search if not link
+        // 🔍 Search YouTube if not link
         if (!query.startsWith("http")) {
             const search = await yts(query);
             if (!search.videos.length) return reply("❌ Song not found");
@@ -33,7 +33,7 @@ cmd({
             thumbnail = video.thumbnail;
         }
 
-        // 🎵 Gifted download
+        // 🎵 Get download link from Gifted
         const apiUrl = `https://api.giftedtech.co.ke/api/download/dlmp3?apikey=gifted&url=${encodeURIComponent(videoUrl)}`;
         const res = await fetch(apiUrl);
         const json = await res.json();
@@ -43,17 +43,21 @@ cmd({
         }
 
         const { download_url } = json.result;
+
+        // ✅ IMPORTANT: download file buffer
+        const audioBuffer = await fetch(download_url).then(r => r.buffer());
+
         const speed = Date.now() - start;
 
-        // send preview
+        // preview message
         await conn.sendMessage(from, {
             image: { url: thumbnail || json.result.thumbnail },
             caption: `🎧 *${title || json.result.title}*\n⚡ Speed: ${speed}ms`
         });
 
-        // ✅ send audio correctly for WhatsApp
+        // ✅ send real audio file
         await conn.sendMessage(from, {
-            audio: { url: download_url },
+            audio: audioBuffer,
             mimetype: "audio/mpeg",
             fileName: `${title || json.result.title}.mp3`,
             ptt: false

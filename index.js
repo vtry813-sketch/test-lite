@@ -151,7 +151,7 @@ async function connectToWA() {
           console.log('[ 🪀 ] Bot connected to WhatsApp 📲')
 
           let up = `╔════════════════╗
-║ 🤖 CONNECTED
+║ 🤖 ▰𝗖𝗢𝗡𝗡𝗘𝗖𝗧𝗘𝗗▰
 ╠════════════════╣
 ║ 🔑 PREFIX  : ${config.PREFIX}
 ║ 👨‍💻 DEV     : POPKID-MD

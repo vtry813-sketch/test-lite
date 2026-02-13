@@ -6,19 +6,38 @@ const { cmd, commands } = require('../command');
 // ✅ Your Live Image URL
 const MENU_IMAGE_URL = "https://files.catbox.moe/7t824v.jpg";
 
+// =====================
 // Helpers
+// =====================
+
 const formatSize = (bytes) => {
-    if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(1) + 'GB';
-    return (bytes / 1048576).toFixed(1) + 'MB';
+    if (!bytes || isNaN(bytes)) return '0MB';
+    if (bytes >= 1073741824) return (bytes / 1073741824).toFixed(2) + 'GB';
+    return (bytes / 1048576).toFixed(2) + 'MB';
 };
 
 const formatUptime = (seconds) => {
-    const d = Math.floor(seconds / (24 * 3600));
-    const h = Math.floor((seconds % (24 * 3600)) / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
+    seconds = Number(seconds);
+    const d = Math.floor(seconds / 86400);
+    const h = Math.floor(seconds % 86400 / 3600);
+    const m = Math.floor(seconds % 3600 / 60);
     const s = Math.floor(seconds % 60);
     return `${d}d ${h}h ${m}m ${s}s`;
 };
+
+const getSystemStats = () => {
+    const total = os.totalmem();
+    const free = os.freemem();
+    return {
+        ram: `${formatSize(total - free)}/${formatSize(total)}`,
+        cpu: os.cpus()[0]?.model || 'Unknown CPU',
+        platform: os.platform()
+    };
+};
+
+// =====================
+// MENU COMMAND
+// =====================
 
 cmd({
     pattern: 'menu',
@@ -30,50 +49,83 @@ cmd({
 }, async (conn, mek, m, { from, sender, pushName, reply }) => {
     try {
 
+        const start = Date.now();
+
         const timeZone = 'Africa/Nairobi';
-        const date = moment.tz(timeZone).format('DD/MM/YYYY');
+        const now = moment().tz(timeZone);
+
+        const date = now.format('DD/MM/YYYY');
         const uptime = formatUptime(process.uptime());
-        const ram = `${formatSize(os.totalmem() - os.freemem())}/${formatSize(os.totalmem())}`;
-        const mode = (config.MODE === 'public') ? 'PUBLIC' : 'PRIVATE';
+        const stats = getSystemStats();
+        const mode = config.MODE === 'public' ? 'PUBLIC' : 'PRIVATE';
         const userName = pushName || 'User';
 
-        // Group Commands
+        // =====================
+        // Group & Arrange Commands
+        // =====================
+
         const commandsByCategory = {};
         let totalCommands = 0;
 
-        commands.forEach(command => {
-            if (command.pattern && !command.dontAdd && command.category) {
-                const cat = command.category.toUpperCase();
-                if (!commandsByCategory[cat]) commandsByCategory[cat] = [];
-                commandsByCategory[cat].push(command.pattern.split('|')[0]);
-                totalCommands++;
-            }
-        });
+        commands
+            .filter(cmd => cmd.pattern && !cmd.dontAdd && cmd.category)
+            .forEach(cmd => {
+                const category = cmd.category.toUpperCase().trim();
+                const name = cmd.pattern.split('|')[0].trim();
 
-        // Build Menu
+                if (!commandsByCategory[category])
+                    commandsByCategory[category] = new Set();
+
+                commandsByCategory[category].add(name);
+                totalCommands++;
+            });
+
+        // Sort categories A-Z
+        const sortedCategories = Object.keys(commandsByCategory).sort();
+
+        // =====================
+        // Build Menu (Layout unchanged)
+        // =====================
+
         let menu = `╭══〘 *${config.BOT_NAME || 'POP KID-MD'}* 〙══⊷
 ┃❍ *Mode:* ${mode}
 ┃❍ *User:* ${userName}
 ┃❍ *Plugins:* ${totalCommands}
 ┃❍ *Uptime:* ${uptime}
 ┃❍ *Date:* ${date}
-┃❍ *RAM:* ${ram}
-┃❍ *Ping:* ${Math.floor(Math.random() * 50) + 10}ms
+┃❍ *RAM:* ${stats.ram}
+┃❍ *Ping:* calculating...
 ╰═════════════════⊷
 
 *Command List ⤵*`;
 
-        for (const category in commandsByCategory) {
+        for (const category of sortedCategories) {
+
             menu += `\n\n╭━━━━❮ *${category}* ❯━⊷\n`;
-            commandsByCategory[category].sort().forEach(cmdName => {
-                menu += `┃✞︎ ${config.PREFIX + cmdName}\n`;
-            });
+
+            // Sort commands A-Z
+            const sortedCommands = [...commandsByCategory[category]].sort();
+
+            for (const cmdName of sortedCommands) {
+                menu += `┃✞︎ ${config.PREFIX}${cmdName}\n`;
+            }
+
             menu += `╰━━━━━━━━━━━━━━━━━⊷`;
         }
 
         menu += `\n\n> *${config.BOT_NAME || 'POP KID-MD'}* © 2026 🇰🇪`;
 
-        // ✅ Clean Send
+        // Real Ping
+        const end = Date.now();
+        const ping = end - start;
+
+        // Replace calculating with real ping
+        menu = menu.replace('calculating...', `${ping}ms`);
+
+        // =====================
+        // Send Message
+        // =====================
+
         await conn.sendMessage(from, {
             image: { url: MENU_IMAGE_URL },
             caption: menu,

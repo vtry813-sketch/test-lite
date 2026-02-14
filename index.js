@@ -59,7 +59,6 @@ const bodyparser = require('body-parser')
 const os = require('os')
 const Crypto = require('crypto')
 const path = require('path')
-const prefix = config.PREFIX
 
 const ownerNumber = ['254732297194']
 
@@ -279,9 +278,12 @@ conn?.ev?.on('messages.update', async updates => {
   const from = mek.key.remoteJid
   const quoted = type == 'extendedTextMessage' && mek.message.extendedTextMessage.contextInfo != null ? mek.message.extendedTextMessage.contextInfo.quotedMessage || [] : []
   const body = (type === 'conversation') ? mek.message.conversation : (type === 'extendedTextMessage') ? mek.message.extendedTextMessage.text : (type == 'imageMessage') && mek.message.imageMessage.caption ? mek.message.imageMessage.caption : (type == 'videoMessage') && mek.message.videoMessage.caption ? mek.message.videoMessage.caption : ''
-  const isCmd = body.startsWith(prefix)
+  
+  // ✅ FIXED: Using config.PREFIX directly for dynamic updates
+  const isCmd = body.startsWith(config.PREFIX)
   var budy = typeof mek.text == 'string' ? mek.text : false;
-  const command = isCmd ? body.slice(prefix.length).trim().split(' ').shift().toLowerCase() : ''
+  const command = isCmd ? body.slice(config.PREFIX.length).trim().split(' ').shift().toLowerCase() : ''
+  
   const args = body.trim().split(/ +/).slice(1)
   const q = args.join(' ')
   const text = args.join(' ')
@@ -401,7 +403,7 @@ if (!isReact && config.CUSTOM_REACT === 'true') {
   // take commands 
                  
   const events = require('./command')
-  const cmdName = isCmd ? body.slice(1).trim().split(" ")[0].toLowerCase() : false;
+  const cmdName = isCmd ? body.slice(config.PREFIX.length).trim().split(" ")[0].toLowerCase() : false;
   if (isCmd) {
   const cmd = events.commands.find((cmd) => cmd.pattern === (cmdName)) || events.commands.find((cmd) => cmd.alias && cmd.alias.includes(cmdName))
   if (cmd) {
@@ -512,8 +514,9 @@ if (!isReact && config.CUSTOM_REACT === 'true') {
     /**
     *
     * @param {*} jid
-    * @param {*} message
-    * @param {*} forceForward
+    * @param {*} url
+    * @param {*} caption
+    * @param {*} quoted
     * @param {*} options
     * @returns
     */

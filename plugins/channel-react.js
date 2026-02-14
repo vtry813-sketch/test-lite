@@ -1,59 +1,61 @@
 const config = require('../config');
 const { cmd } = require('../command');
 
-const stylizedChars = {
-    a: '🅐', b: '🅑', c: '🅒', d: '🅓', e: '🅔', f: '🅕', g: '🅖',
-    h: '🅗', i: '🅘', j: '🅙', k: '🅚', l: '🅛', m: '🅜', n: '🅝',
-    o: '🅞', p: '🅟', q: '🅠', r: '🅡', s: '🅢', t: '🅣', u: '🅤',
-    v: '🅥', w: '🅦', x: '🅧', y: '🅨', z: '🅩',
-    '0': '⓿', '1': '➊', '2': '➋', '3': '➌', '4': '➍',
-    '5': '➎', '6': '➏', '7': '➐', '8': '➑', '9': '➒'
-};
-
 cmd({
     pattern: "ch",
-    alias: ["chreact"],
-    react: "🔤",
-    desc: "React to channel messages with stylized text",
+    alias: ["chreact", "bomb"],
+    react: "🚀",
+    desc: "Send a specific number of reactions to a channel message",
     category: "owner",
-    use: '.chr <channel-link> <text>',
+    use: '.ch <link> <emoji> <number>',
     filename: __filename
 },
-async (conn, mek, m, { from, quoted, body, isCmd, command, args, q, isGroup, sender, senderNumber, botNumber2, botNumber, pushname, isMe, isCreator, groupMetadata, groupName, participants, groupAdmins, isBotAdmins, isAdmins, reply }) => {
+async (conn, mek, m, { from, q, isCreator, reply, command }) => {
     try {
-        if (!isCreator) return reply("❌ Owner only command");
-        if (!q) return reply(`Usage:\n${command} https://whatsapp.com/channel/1234567890 hello`);
+        // 1. Security Check
+        if (!isCreator) return reply("❌ This power is for the Owner only.");
 
-        const [link, ...textParts] = q.split(' ');
-        if (!link.includes("whatsapp.com/channel/")) return reply("Invalid channel link format");
-        
-        const inputText = textParts.join(' ').toLowerCase();
-        if (!inputText) return reply("Please provide text to convert");
+        // 2. Parse the Input (Split by space)
+        const args = q.trim().split(/\s+/); 
+        if (args.length < 3) {
+            return reply(`*Missing Information!*\n\n*Format:* .${command} <link> <emoji> <count>\n*Example:* .${command} https://whatsapp.com/channel/xxx/123 🔥 50`);
+        }
 
-        const emoji = inputText
-            .split('')
-            .map(char => {
-                if (char === ' ') return '―';
-                return stylizedChars[char] || char;
-            })
-            .join('');
+        const link = args[0];
+        const emoji = args[1];
+        const count = parseInt(args[2]);
 
-        const channelId = link.split('/')[4];
-        const messageId = link.split('/')[5];
-        if (!channelId || !messageId) return reply("Invalid link - missing IDs");
+        // 3. Validation Logic
+        if (!link.includes("whatsapp.com/channel/")) return reply("❌ That doesn't look like a valid WhatsApp Channel link.");
+        if (isNaN(count) || count <= 0) return reply("❌ Please provide a valid number (e.g., 100).");
+        if (count > 500) return reply("⚠️ Safety limit reached. Please keep it under 500 to avoid account bans.");
 
+        // 4. Extract IDs from the Link
+        const linkParts = link.split('/');
+        const channelId = linkParts[4];
+        const messageId = linkParts[5];
+
+        if (!channelId || !messageId) return reply("❌ Link error: Could not find the Channel or Message ID.");
+
+        // 5. Get Channel Metadata (Internal ID)
         const channelMeta = await conn.newsletterMetadata("invite", channelId);
-        await conn.newsletterReactMessage(channelMeta.id, messageId, emoji);
+        
+        // Let the user know the process has started
+        await reply(`🚀 *Starting Reaction Bomb*...\n\nTarget: ${channelMeta.name}\nEmoji: ${emoji}\nAmount: ${count}`);
 
-        return reply(`╭━━━〔 *popkid* 〕━━━┈⊷
-┃▸ *Success!* Reaction sent
-┃▸ *Channel:* ${channelMeta.name}
-┃▸ *Reaction:* ${emoji}
-╰────────────────┈⊷
-> *popkid xtr*`);
+        // 6. The Execution Loop
+        for (let i = 1; i <= count; i++) {
+            await conn.newsletterReactMessage(channelMeta.id, messageId, emoji);
+            
+            // This 300ms pause keeps the bot "under the radar" of WhatsApp's spam filters
+            await new Promise(resolve => setTimeout(resolve, 300));
+        }
+
+        // 7. Success Notification
+        return reply(`✅ *Finished!*\nSent ${count} "${emoji}" reactions to the message.`);
+
     } catch (e) {
         console.error(e);
-        reply(`❎ Error: ${e.message || "Failed to send reaction"}`);
+        reply(`❎ *System Error:* ${e.message || "Operation failed."}`);
     }
 });
-

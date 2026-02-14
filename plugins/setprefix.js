@@ -1,38 +1,39 @@
 const { cmd } = require('../command');
+const config = require('../config'); // This imports your config file
 
 cmd({
     pattern: "setprefix",
-    desc: "Change the bot's command prefix",
+    desc: "Update the command prefix",
     category: "owner",
     react: "⚙️",
     filename: __filename
-}, async (conn, m, mek, { from, reply, isOwner }) => {
+}, async (conn, m, mek, { from, reply, text, isOwner }) => {
 
-    // 🛡️ Security Check: Only the owner should change the prefix
+    // 🛡️ Safety: Using the OWNER_NUMBER check from your config
     if (!isOwner) return reply("*❌ ᴏᴡɴᴇʀ ᴏɴʟʏ ᴄᴏᴍᴍᴀɴᴅ*");
-
-    const text = m.text.split(" ").slice(1).join(" ").trim();
 
     if (!text) return reply("*⚠️ ᴘʟᴇᴀsᴇ ᴘʀᴏᴠɪᴅᴇ ᴀ ᴘʀᴇғɪx (ᴇ.ɢ .sᴇᴛᴘʀᴇғɪx !)*");
 
     try {
-        // Update the global prefix variable
-        global.prefix = text;
-
-        // ping-style reaction
+        // This updates the prefix in the current running process
+        config.PREFIX = text; 
+        
+        // Success Reaction
         await conn.sendMessage(from, { react: { text: "✅", key: mek.key } });
 
-        // Styled response in POPKID MP3 style 💝
-        await conn.sendMessage(from, {
-            image: { url: "https://i.ibb.co/vzP6H7B/prefix-settings.jpg" }, // Optional: Add a settings icon URL here
-            caption: `*⚙️ P O P K I D  S E T T I N G S 💝*\n\n` +
-                     `*✨ sᴛᴀᴛᴜs:* ᴘʀᴇғɪx ᴜᴘᴅᴀᴛᴇᴅ\n` +
-                     `*🎯 ɴᴇᴡ ᴘʀᴇғɪx:* [ ${text} ]\n\n` +
-                     `> *ᴀʟʟ ᴄᴏᴍᴍᴀɴᴅs ᴡɪʟʟ ɴᴏᴡ ʀᴇsᴘᴏɴᴅ ᴛᴏ ${text}*`
-        });
+        // Styled POPKID MP3 Response 💝
+        const caption = `*⚙️ P O P K I D  S E T T I N G S 💝*\n\n` +
+                        `*✨ sᴛᴀᴛᴜs:* ᴘʀᴇғɪx ᴜᴘᴅᴀᴛᴇᴅ ʟɪᴠᴇ\n` +
+                        `*🎯 ɴᴇᴡ ᴘʀᴇғɪx:* [ ${text} ]\n\n` +
+                        `> *© ᴘᴏᴡᴇʀᴇᴅ ʙʏ ᴘᴏᴘᴋɪᴅ*`;
+
+        await conn.sendMessage(from, { 
+            image: { url: config.ALIVE_IMG }, // Uses your alive image from config
+            caption: caption 
+        }, { quoted: mek });
 
     } catch (e) {
-        console.error(e);
-        reply("*❗ ᴇʀʀᴏʀ ᴜᴘᴅᴀᴛɪɴɢ ᴘʀᴇғɪx*");
+        console.log(e);
+        reply("*❗ sʏsᴛᴇᴍ ᴇʀʀᴏʀ: ᴜɴᴀʙʟᴇ ᴛᴏ ᴍᴏᴅɪғʏ ᴘʀᴇғɪx*");
     }
 });

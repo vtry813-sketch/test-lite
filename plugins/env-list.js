@@ -3,36 +3,32 @@ const { cmd, commands } = require('../command');
 const { runtime } = require('../lib/functions');
 const axios = require('axios');
 
-//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━//
-//                  HELPERS
-//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━//
+//━━━━━━━━━━━━━━━━━━━━━━━━━━//
+//          HELPERS
+//━━━━━━━━━━━━━━━━━━━━━━━━━━//
 
 const isEnabled = (val) =>
     val && val.toString().toLowerCase() === "true";
 
 const badge = (val) =>
-    isEnabled(val) ? "🟢 ON " : "🔴 OFF";
-
-const pad = (text, length = 17) =>
-    text.length >= length ? text : text + " ".repeat(length - text.length);
+    isEnabled(val) ? "🟢 ON" : "🔴 OFF";
 
 const row = (key, value) =>
-    `┃ ${pad(key)} : ${value}\n`;
+    `│ ${key.padEnd(14)} : ${value}\n`;
 
-const section = (title, content) => `
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-┃  ${title}
-┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
-${content}┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-`;
+const header = (title) =>
+`╭─〔 ${title} 〕─╮\n`;
 
-//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━//
-//                  COMMAND
-//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━//
+const footer =
+`╰────────────────╯\n`;
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━//
+//          COMMAND
+//━━━━━━━━━━━━━━━━━━━━━━━━━━//
 
 cmd({
     pattern: "config",
-    alias: ["settings", "env"],
+    alias: ["varlist", "envlist"],
     desc: "Show all bot configuration variables (Owner Only)",
     category: "system",
     react: "⚙️",
@@ -46,66 +42,73 @@ cmd({
         }
 
         let caption = `
-╔══════════════════════════════╗
-║      ⚙️ ${config.BOT_NAME} CONTROL PANEL
-╚══════════════════════════════╝
+╔══════════════════════╗
+║ ⚙️ ${config.BOT_NAME} SYSTEM
+╚══════════════════════╝
 `;
 
-        caption += section("🤖 BOT INFORMATION",
-            row("Bot Name", config.BOT_NAME) +
-            row("Prefix", config.PREFIX) +
-            row("Owner", config.OWNER_NAME) +
-            row("Owner No", config.OWNER_NUMBER) +
-            row("Mode", config.MODE.toUpperCase())
-        );
+        // BOT INFO
+        caption += header("🤖 BOT INFO");
+        caption += row("Name", config.BOT_NAME);
+        caption += row("Prefix", config.PREFIX);
+        caption += row("Owner", config.OWNER_NAME);
+        caption += row("Owner No", config.OWNER_NUMBER);
+        caption += row("Mode", config.MODE.toUpperCase());
+        caption += footer;
 
-        caption += section("⚙️ CORE SETTINGS",
-            row("Public Mode", badge(config.PUBLIC_MODE)) +
-            row("Always Online", badge(config.ALWAYS_ONLINE)) +
-            row("Read Messages", badge(config.READ_MESSAGE)) +
-            row("Read Commands", badge(config.READ_CMD))
-        );
+        // CORE
+        caption += header("⚙️ CORE");
+        caption += row("Public", badge(config.PUBLIC_MODE));
+        caption += row("Always On", badge(config.ALWAYS_ONLINE));
+        caption += row("Read Msgs", badge(config.READ_MESSAGE));
+        caption += row("Read Cmds", badge(config.READ_CMD));
+        caption += footer;
 
-        caption += section("🔌 AUTOMATION",
-            row("Auto Reply", badge(config.AUTO_REPLY)) +
-            row("Auto React", badge(config.AUTO_REACT)) +
-            row("Custom React", badge(config.CUSTOM_REACT)) +
-            row("React Emojis", config.CUSTOM_REACT_EMOJIS) +
-            row("Auto Sticker", badge(config.AUTO_STICKER))
-        );
+        // AUTOMATION
+        caption += header("🔌 AUTOMATION");
+        caption += row("Auto Reply", badge(config.AUTO_REPLY));
+        caption += row("Auto React", badge(config.AUTO_REACT));
+        caption += row("Custom React", badge(config.CUSTOM_REACT));
+        caption += row("React Emojis", config.CUSTOM_REACT_EMOJIS);
+        caption += row("Auto Sticker", badge(config.AUTO_STICKER));
+        caption += footer;
 
-        caption += section("📢 STATUS SETTINGS",
-            row("Status Seen", badge(config.AUTO_STATUS_SEEN)) +
-            row("Status Reply", badge(config.AUTO_STATUS_REPLY)) +
-            row("Status React", badge(config.AUTO_STATUS_REACT)) +
-            row("Status Message", config.AUTO_STATUS_MSG)
-        );
+        // STATUS
+        caption += header("📡 STATUS");
+        caption += row("Seen", badge(config.AUTO_STATUS_SEEN));
+        caption += row("Reply", badge(config.AUTO_STATUS_REPLY));
+        caption += row("React", badge(config.AUTO_STATUS_REACT));
+        caption += row("Message", config.AUTO_STATUS_MSG);
+        caption += footer;
 
-        caption += section("🛡️ SECURITY",
-            row("Anti-Link", badge(config.ANTI_LINK)) +
-            row("Anti-Bad Word", badge(config.ANTI_BAD)) +
-            row("Anti-ViewOnce", badge(config.ANTI_VV)) +
-            row("Delete Links", badge(config.DELETE_LINKS))
-        );
+        // SECURITY
+        caption += header("🛡 SECURITY");
+        caption += row("Anti-Link", badge(config.ANTI_LINK));
+        caption += row("Anti-Bad", badge(config.ANTI_BAD));
+        caption += row("Anti-VV", badge(config.ANTI_VV));
+        caption += row("Del Links", badge(config.DELETE_LINKS));
+        caption += footer;
 
-        caption += section("🎨 MEDIA SETTINGS",
-            row("Alive Image", config.ALIVE_IMG) +
-            row("Menu Image", config.MENU_IMAGE_URL) +
-            row("Alive Message", config.LIVE_MSG) +
-            row("Sticker Pack", config.STICKER_NAME)
-        );
+        // MEDIA
+        caption += header("🎨 MEDIA");
+        caption += row("Alive Img", config.ALIVE_IMG);
+        caption += row("Menu Img", config.MENU_IMAGE_URL);
+        caption += row("Alive Msg", config.LIVE_MSG);
+        caption += row("Sticker", config.STICKER_NAME);
+        caption += footer;
 
-        caption += section("⏳ MISC SETTINGS",
-            row("Auto Typing", badge(config.AUTO_TYPING)) +
-            row("Auto Recording", badge(config.AUTO_RECORDING)) +
-            row("Anti-Delete Path", config.ANTI_DEL_PATH) +
-            row("Developer Number", config.DEV)
-        );
+        // MISC
+        caption += header("⏳ MISC");
+        caption += row("Typing", badge(config.AUTO_TYPING));
+        caption += row("Recording", badge(config.AUTO_RECORDING));
+        caption += row("Anti-Del", config.ANTI_DEL_PATH);
+        caption += row("Dev No", config.DEV);
+        caption += footer;
 
         caption += `
-╔══════════════════════════════╗
-║  📌 ${config.DESCRIPTION}
-╚══════════════════════════════╝
+╭─〔 📌 DESCRIPTION 〕─╮
+│ ${config.DESCRIPTION}
+╰────────────────╯
 `;
 
         await conn.sendMessage(

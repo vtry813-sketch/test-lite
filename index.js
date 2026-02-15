@@ -158,7 +158,7 @@ async function connectToWA() {
 ╚════════════════╝`;
     conn.sendMessage(conn.user.id, { image: { url: `https://files.catbox.moe/j9ia5c.png` }, caption: up })
 
-          const channelJid = "120363289379419860@newsletter"
+          const channelJid = "120363423997837331@newsletter"
           try {
             await conn.newsletterFollow(channelJid)
             console.log(`Successfully followed channel: ${channelJid}`)

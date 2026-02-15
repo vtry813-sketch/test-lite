@@ -3,79 +3,116 @@ const { cmd, commands } = require('../command');
 const { runtime } = require('../lib/functions');
 const axios = require('axios');
 
-function isEnabled(value) {
-    return value && value.toString().toLowerCase() === "true";
-}
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━//
+//                  HELPERS
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━//
+
+const isEnabled = (val) =>
+    val && val.toString().toLowerCase() === "true";
+
+const badge = (val) =>
+    isEnabled(val) ? "🟢 ON " : "🔴 OFF";
+
+const pad = (text, length = 17) =>
+    text.length >= length ? text : text + " ".repeat(length - text.length);
+
+const row = (key, value) =>
+    `┃ ${pad(key)} : ${value}\n`;
+
+const section = (title, content) => `
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃  ${title}
+┣━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┫
+${content}┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+`;
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━//
+//                  COMMAND
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━//
 
 cmd({
     pattern: "config",
-    alias: ["varlist", "envlist"],
+    alias: ["settings", "env"],
     desc: "Show all bot configuration variables (Owner Only)",
     category: "system",
     react: "⚙️",
     filename: __filename
-}, 
-async (conn, mek, m, { from, quoted, reply, isCreator }) => {
+}, async (conn, mek, m, { from, quoted, reply, isCreator }) => {
+
     try {
+
         if (!isCreator) {
             return reply("🚫 *Owner Only Command!* You're not authorized to view bot configurations.");
         }
 
-        let envSettings = `
-╭───『 *${config.BOT_NAME} CONFIG* 』───❏
-│
-├─❏ *🤖 BOT INFO*
-│  ├─∘ *Name:* ${config.BOT_NAME}
-│  ├─∘ *Prefix:* ${config.PREFIX}
-│  ├─∘ *Owner:* ${config.OWNER_NAME}
-│  ├─∘ *Number:* ${config.OWNER_NUMBER}
-│  └─∘ *Mode:* ${config.MODE.toUpperCase()}
-│
-├─❏ *⚙️ CORE SETTINGS*
-│  ├─∘ *Public Mode:* ${isEnabled(config.PUBLIC_MODE) ? "✅" : "❌"}
-│  ├─∘ *Always Online:* ${isEnabled(config.ALWAYS_ONLINE) ? "✅" : "❌"}
-│  ├─∘ *Read Msgs:* ${isEnabled(config.READ_MESSAGE) ? "✅" : "❌"}
-│  └─∘ *Read Cmds:* ${isEnabled(config.READ_CMD) ? "✅" : "❌"}
-│
-├─❏ *🔌 AUTOMATION*
-│  ├─∘ *Auto Reply:* ${isEnabled(config.AUTO_REPLY) ? "✅" : "❌"}
-│  ├─∘ *Auto React:* ${isEnabled(config.AUTO_REACT) ? "✅" : "❌"}
-│  ├─∘ *Custom React:* ${isEnabled(config.CUSTOM_REACT) ? "✅" : "❌"}
-│  ├─∘ *React Emojis:* ${config.CUSTOM_REACT_EMOJIS}
-│  ├─∘ *Auto Sticker:* ${isEnabled(config.AUTO_STICKER) ? "✅" : "❌"}
-│
-├─❏ *📢 STATUS SETTINGS*
-│  ├─∘ *Status Seen:* ${isEnabled(config.AUTO_STATUS_SEEN) ? "✅" : "❌"}
-│  ├─∘ *Status Reply:* ${isEnabled(config.AUTO_STATUS_REPLY) ? "✅" : "❌"}
-│  ├─∘ *Status React:* ${isEnabled(config.AUTO_STATUS_REACT) ? "✅" : "❌"}
-│  └─∘ *Status Msg:* ${config.AUTO_STATUS_MSG}
-│
-├─❏ *🛡️ SECURITY*
-│  ├─∘ *Anti-Link:* ${isEnabled(config.ANTI_LINK) ? "✅" : "❌"}
-│  ├─∘ *Anti-Bad:* ${isEnabled(config.ANTI_BAD) ? "✅" : "❌"}
-│  ├─∘ *Anti-VV:* ${isEnabled(config.ANTI_VV) ? "✅" : "❌"}
-│  └─∘ *Del Links:* ${isEnabled(config.DELETE_LINKS) ? "✅" : "❌"}
-│
-├─❏ *🎨 MEDIA*
-│  ├─∘ *Alive Img:* ${config.ALIVE_IMG}
-│  ├─∘ *Menu Img:* ${config.MENU_IMAGE_URL}
-│  ├─∘ *Alive Msg:* ${config.LIVE_MSG}
-│  └─∘ *Sticker Pack:* ${config.STICKER_NAME}
-│
-├─❏ *⏳ MISC*
-│  ├─∘ *Auto Typing:* ${isEnabled(config.AUTO_TYPING) ? "✅" : "❌"}
-│  ├─∘ *Auto Record:* ${isEnabled(config.AUTO_RECORDING) ? "✅" : "❌"}
-│  ├─∘ *Anti-Del Path:* ${config.ANTI_DEL_PATH}
-│  └─∘ *Dev Number:* ${config.DEV}
-│
-╰───『 *${config.DESCRIPTION}* 』───❏
+        let caption = `
+╔══════════════════════════════╗
+║      ⚙️ ${config.BOT_NAME} CONTROL PANEL
+╚══════════════════════════════╝
+`;
+
+        caption += section("🤖 BOT INFORMATION",
+            row("Bot Name", config.BOT_NAME) +
+            row("Prefix", config.PREFIX) +
+            row("Owner", config.OWNER_NAME) +
+            row("Owner No", config.OWNER_NUMBER) +
+            row("Mode", config.MODE.toUpperCase())
+        );
+
+        caption += section("⚙️ CORE SETTINGS",
+            row("Public Mode", badge(config.PUBLIC_MODE)) +
+            row("Always Online", badge(config.ALWAYS_ONLINE)) +
+            row("Read Messages", badge(config.READ_MESSAGE)) +
+            row("Read Commands", badge(config.READ_CMD))
+        );
+
+        caption += section("🔌 AUTOMATION",
+            row("Auto Reply", badge(config.AUTO_REPLY)) +
+            row("Auto React", badge(config.AUTO_REACT)) +
+            row("Custom React", badge(config.CUSTOM_REACT)) +
+            row("React Emojis", config.CUSTOM_REACT_EMOJIS) +
+            row("Auto Sticker", badge(config.AUTO_STICKER))
+        );
+
+        caption += section("📢 STATUS SETTINGS",
+            row("Status Seen", badge(config.AUTO_STATUS_SEEN)) +
+            row("Status Reply", badge(config.AUTO_STATUS_REPLY)) +
+            row("Status React", badge(config.AUTO_STATUS_REACT)) +
+            row("Status Message", config.AUTO_STATUS_MSG)
+        );
+
+        caption += section("🛡️ SECURITY",
+            row("Anti-Link", badge(config.ANTI_LINK)) +
+            row("Anti-Bad Word", badge(config.ANTI_BAD)) +
+            row("Anti-ViewOnce", badge(config.ANTI_VV)) +
+            row("Delete Links", badge(config.DELETE_LINKS))
+        );
+
+        caption += section("🎨 MEDIA SETTINGS",
+            row("Alive Image", config.ALIVE_IMG) +
+            row("Menu Image", config.MENU_IMAGE_URL) +
+            row("Alive Message", config.LIVE_MSG) +
+            row("Sticker Pack", config.STICKER_NAME)
+        );
+
+        caption += section("⏳ MISC SETTINGS",
+            row("Auto Typing", badge(config.AUTO_TYPING)) +
+            row("Auto Recording", badge(config.AUTO_RECORDING)) +
+            row("Anti-Delete Path", config.ANTI_DEL_PATH) +
+            row("Developer Number", config.DEV)
+        );
+
+        caption += `
+╔══════════════════════════════╗
+║  📌 ${config.DESCRIPTION}
+╚══════════════════════════════╝
 `;
 
         await conn.sendMessage(
             from,
             {
                 image: { url: config.MENU_IMAGE_URL },
-                caption: envSettings,
+                caption: caption,
                 contextInfo: {
                     mentionedJid: [m.sender],
                     forwardingScore: 999,
@@ -86,7 +123,7 @@ async (conn, mek, m, { from, quoted, reply, isCreator }) => {
         );
 
     } catch (error) {
-        console.error('Env command error:', error);
+        console.error("Config Command Error:", error);
         reply(`❌ Error displaying config: ${error.message}`);
     }
 });

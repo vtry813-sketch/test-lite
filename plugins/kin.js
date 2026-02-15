@@ -1,5 +1,5 @@
 // --------------------------------------------------
-// 🎵 POPKID PLAY - Gifted Scrap Version (CMD)
+// 🎵 POPKID PLAY - Advanced Premium UI Version
 // --------------------------------------------------
 
 const { cmd } = require('../command');
@@ -19,9 +19,9 @@ cmd({
 
     try {
 
-        await conn.sendMessage(from, { react: { text: "🔍", key: mek.key } });
+        await conn.sendMessage(from, { react: { text: "🔎", key: mek.key } });
 
-        // 🔎 Search
+        // 🔍 Search YouTube
         const search = await yts(q);
         if (!search.videos.length)
             return reply("❌ No results found.");
@@ -29,7 +29,7 @@ cmd({
         const video = search.videos[0];
         const videoUrl = video.url;
 
-        // 🎯 GiftedTech API Call
+        // 🎯 Gifted API
         const apiUrl =
             `https://api.giftedtech.co.ke/api/download/dlmp3?apikey=gifted&url=${encodeURIComponent(videoUrl)}`;
 
@@ -38,9 +38,7 @@ cmd({
         if (!data.success || !data.result?.download_url)
             return reply("❌ Download service unavailable.");
 
-        await conn.sendMessage(from, { react: { text: "⬇️", key: mek.key } });
-
-        // 📦 Download Buffer
+        // 📦 Download audio buffer
         const response = await axios.get(data.result.download_url, {
             responseType: "arraybuffer"
         });
@@ -51,49 +49,69 @@ cmd({
         if (sizeMB > 25)
             return reply("❌ File too large to send.");
 
-        // 🔐 Unique ID
         const uniqueId = Date.now();
 
-        // 🎛 Send Gifted Buttons (SCRAP STYLE)
-        await sendButtons(conn, from, {
-            title: "🎵 POPKID SONG DOWNLOADER",
-            text:
-`⿻ *Title:* ${video.title}
-⿻ *Duration:* ${video.timestamp}
-⿻ *Author:* ${video.author.name}
+        // 🎨 Stylish Text Layout
+        const styledText = `
+╭━━━〔 🎵 *POP* 🎵 〕━━━╮
+┃
+┃ 🎧 *Title:* ${video.title}
+┃ ⏱ *Duration:* ${video.timestamp}
+┃ 👤 *Artist:* ${video.author.name}
+┃ 👁 *Views:* ${video.views.toLocaleString()}
+┃
+┃ 📥 *Choose Download Format Below*
+┃
+╰━━━━━━━━━━━━━━━━━━━━━━╯
+`;
 
-*Select download format:*`,
-            footer: "Powered By Popkid XMD",
-            image: video.thumbnail,
+        // 🎛 Advanced Buttons with Big Thumbnail
+        await sendButtons(conn, from, {
+            title: "🎶 POPKID XMD DOWNLOADER",
+            text: styledText,
+            footer: "🚀 Powered By Popkid XMD",
+            image: video.thumbnail, // Big song image auto
             buttons: [
-                { id: `audio_${uniqueId}`, text: "Audio 🎶" },
-                { id: `ptt_${uniqueId}`, text: "Voice Message 🔉" },
-                { id: `doc_${uniqueId}`, text: "Audio Document 📄" },
+                { id: `audio_${uniqueId}`, text: "🎵 High Quality Audio" },
+                { id: `ptt_${uniqueId}`, text: "🔊 Voice Message (PTT)" },
+                { id: `doc_${uniqueId}`, text: "📄 Audio as Document" },
                 {
                     name: "cta_url",
                     buttonParamsJson: JSON.stringify({
-                        display_text: "Watch on YouTube",
+                        display_text: "▶ Watch on YouTube",
                         url: video.url
                     })
                 }
             ]
         });
 
-        // 🧠 Response Handler
+        // ✅ BUTTON HANDLER
         const handler = async (event) => {
 
-            const msg = event.messages[0];
-            if (!msg.message) return;
-
-            const templateReply =
-                msg.message?.templateButtonReplyMessage;
-
-            if (!templateReply) return;
-
-            const selectedId = templateReply.selectedId;
-
-            if (!selectedId.includes(uniqueId)) return;
+            const msg = event.messages?.[0];
+            if (!msg?.message) return;
             if (msg.key.remoteJid !== from) return;
+
+            let selectedId = null;
+
+            if (msg.message.buttonsResponseMessage) {
+                selectedId =
+                    msg.message.buttonsResponseMessage.selectedButtonId;
+            }
+
+            if (msg.message.interactiveResponseMessage) {
+                selectedId =
+                    msg.message.interactiveResponseMessage
+                        .nativeFlowResponseMessage?.paramsJson
+                        ? JSON.parse(
+                            msg.message.interactiveResponseMessage
+                                .nativeFlowResponseMessage.paramsJson
+                          ).id
+                        : null;
+            }
+
+            if (!selectedId) return;
+            if (!selectedId.includes(uniqueId)) return;
 
             await conn.sendMessage(from, {
                 react: { text: "⬇️", key: msg.key }
@@ -143,7 +161,6 @@ cmd({
 
         conn.ev.on("messages.upsert", handler);
 
-        // 🕒 Auto Remove After 2 Minutes
         setTimeout(() => {
             conn.ev.off("messages.upsert", handler);
         }, 120000);

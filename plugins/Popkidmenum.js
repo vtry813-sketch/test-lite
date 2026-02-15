@@ -36,11 +36,11 @@ const getSystemStats = () => {
 };
 
 // =====================
-// MAIN MENU
+// MENU COMMAND
 // =====================
 
 cmd({
-    pattern: 'menu5',
+    pattern: 'menu',
     alias: ['help', 'allmenu'],
     react: '✅',
     category: 'main',
@@ -59,6 +59,8 @@ cmd({
         const userName = pushName || 'User';
 
         const commandsByCategory = {};
+        let totalCommands = 0;
+
         commands
             .filter(cmd => cmd.pattern && !cmd.dontAdd && cmd.category)
             .forEach(cmd => {
@@ -69,83 +71,61 @@ cmd({
                     commandsByCategory[category] = new Set();
 
                 commandsByCategory[category].add(name);
+                totalCommands++;
             });
 
         const sortedCategories = Object.keys(commandsByCategory).sort();
 
-        const end = Date.now();
-        const ping = end - start;
-
-        const header = `╭══〘 *${config.BOT_NAME || 'POP KID-MD'}* 〙══⊷
+        let menu = `╭══〘 *${config.BOT_NAME || 'POP KID-MD'}* 〙══⊷
 ┃❍ *Mode:* ${mode}
 ┃❍ *User:* ${userName}
+┃❍ *Plugins:* ${totalCommands}
 ┃❍ *Uptime:* ${uptime}
 ┃❍ *Date:* ${date}
 ┃❍ *RAM:* ${stats.ram}
-┃❍ *Ping:* ${ping}ms
+┃❍ *Ping:* calculating...
 ╰═════════════════⊷
 
-*Select a Category Below ⤵*`;
+*Command List ⤵*`;
 
-        // Create buttons from categories (max 3 per row supported)
-        const buttons = sortedCategories.slice(0, 3).map(cat => ({
-            id: `menu_${cat}`,
-            text: cat
-        }));
+        for (const category of sortedCategories) {
 
-        await sendButtons(conn, from, {
-            title: `🤖 ${config.BOT_NAME || 'POP KID-MD'} MENU`,
-            text: header,
-            footer: "🚀 Powered By Popkid XMD",
-            image: MENU_IMAGE_URL,
-            buttons
-        });
-
-        // =====================
-        // CATEGORY HANDLER
-        // =====================
-
-        const handler = async (event) => {
-
-            const msg = event.messages?.[0];
-            if (!msg?.message) return;
-            if (msg.key.remoteJid !== from) return;
-
-            let selectedId = null;
-
-            if (msg.message.buttonsResponseMessage) {
-                selectedId =
-                    msg.message.buttonsResponseMessage.selectedButtonId;
-            }
-
-            if (!selectedId || !selectedId.startsWith("menu_")) return;
-
-            const category = selectedId.replace("menu_", "");
-
-            if (!commandsByCategory[category]) return;
-
-            let categoryMenu = `╭━━━━❮ *${category}* ❯━⊷\n`;
+            menu += `\n\n╭━━━━❮ *${category}* ❯━⊷\n`;
 
             const sortedCommands = [...commandsByCategory[category]].sort();
 
             for (const cmdName of sortedCommands) {
-                categoryMenu += `┃✞︎ ${config.PREFIX}${cmdName}\n`;
+                menu += `┃✞︎ ${config.PREFIX}${cmdName}\n`;
             }
 
-            categoryMenu += `╰━━━━━━━━━━━━━━━━━⊷`;
+            menu += `╰━━━━━━━━━━━━━━━━━⊷`;
+        }
 
-            await conn.sendMessage(from, {
-                text: categoryMenu
-            }, { quoted: msg });
+        menu += `\n\n> *${config.BOT_NAME || 'POP KID-MD'}* © 2026 🇰🇪`;
 
-            conn.ev.off("messages.upsert", handler);
-        };
+        const end = Date.now();
+        const ping = end - start;
+        menu = menu.replace('calculating...', `${ping}ms`);
 
-        conn.ev.on("messages.upsert", handler);
+        // =====================
+        // SEND BUTTON MESSAGE (Same content)
+        // =====================
 
-        setTimeout(() => {
-            conn.ev.off("messages.upsert", handler);
-        }, 120000);
+        await sendButtons(conn, from, {
+            title: `🤖 ${config.BOT_NAME || 'POP KID-MD'} MENU`,
+            text: menu,
+            footer: "🚀 Powered By Popkid XMD",
+            image: MENU_IMAGE_URL,
+            buttons: [
+                {
+                    name: "cta_url",
+                    buttonParamsJson: JSON.stringify({
+                        display_text: "🌐 Official Channel",
+                        url: "https://whatsapp.com"
+                    })
+                }
+            ]
+        });
 
     } catch (e) {
         console.error(e);

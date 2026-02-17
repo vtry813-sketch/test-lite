@@ -9,7 +9,10 @@ cmd({
 }, async (conn, m, mek, { from, args, reply }) => {
     try {
         if (!args[0]) {
-            return reply("❌ Give me a song name or YouTube link!\n\nExample:\n.audio arike kumnie\n.audio https://youtu.be/xxxx");
+            return reply(
+                "❌ Give me a song name or YouTube link!\n\n" +
+                "Example:\n.play cardigan\n.play https://youtu.be/xxxx"
+            );
         }
 
         const query = args.join(" ");
@@ -19,7 +22,7 @@ cmd({
 
         let videoUrl = query;
 
-        // If NOT a YouTube link, search first
+        // If NOT YouTube link, search first
         if (!query.includes("youtube.com") && !query.includes("youtu.be")) {
             const searchUrl = `https://api.yupra.my.id/api/search/youtube?q=${encodeURIComponent(query)}`;
             const searchRes = await axios.get(searchUrl);
@@ -28,11 +31,10 @@ cmd({
                 return reply("❌ No results found for that song.");
             }
 
-            // Take first result
             videoUrl = searchRes.data.results[0].url;
         }
 
-        // Download using Jawad-Tech YTDL API
+        // Get download link
         const apiUrl = `https://jawad-tech.vercel.app/download/ytdl?url=${encodeURIComponent(videoUrl)}`;
         const { data } = await axios.get(apiUrl);
 
@@ -42,6 +44,11 @@ cmd({
 
         const title = data.result.title || "YouTube Audio";
         const audioDownloadUrl = data.result.mp3;
+
+        // 🔥 Download audio as buffer (fixes WhatsApp error)
+        const audioBuffer = await axios.get(audioDownloadUrl, {
+            responseType: "arraybuffer"
+        });
 
         const end = Date.now();
         const speed = end - start;
@@ -54,9 +61,9 @@ cmd({
         );
 
         await conn.sendMessage(from, {
-            audio: { url: audioDownloadUrl },
+            audio: Buffer.from(audioBuffer.data),
             mimetype: "audio/mpeg",
-            fileName: `${title}.mp3`
+            ptt: false
         }, { quoted: mek });
 
     } catch (err) {

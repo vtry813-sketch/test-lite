@@ -21,7 +21,7 @@ cmd({
 
         const videoUrl = data.url;
 
-        // 2. Fetch the download link using Axios
+        // 2. Fetch the download link from the API
         const response = await axios.get(`https://jawad-tech.vercel.app/download/ytdl?url=${encodeURIComponent(videoUrl)}`);
         const downloadData = response.data;
 
@@ -29,7 +29,7 @@ cmd({
             return reply("❌ Failed to fetch audio link from the server.");
         }
 
-        // 3. Simple Modern Info Message
+        // 3. Info Message
         const infoMsg = `
 ✨ *POPKID-XD PLAYER* ✨
 
@@ -41,20 +41,24 @@ cmd({
 > *Downloading audio, please wait...*
         `.trim();
 
-        // Send thumbnail and details first
+        // Send thumbnail and details
         await conn.sendMessage(from, { 
             image: { url: data.thumbnail }, 
             caption: infoMsg 
         }, { quoted: mek });
 
-        // 4. Send the Audio File (Standard MP3)
+        // 4. Download the file into a Buffer to prevent "Audio Not Available" errors
+        const audioBuffer = await axios.get(downloadData.result.mp3, { responseType: 'arraybuffer' });
+
+        // 5. Send the Audio File
         await conn.sendMessage(from, { 
-            audio: { url: downloadData.result.mp3 }, 
+            audio: Buffer.from(audioBuffer.data), 
             mimetype: "audio/mpeg",
-            fileName: `${downloadData.result.title}.mp3`
+            fileName: `${downloadData.result.title}.mp3`,
+            ptt: false // Set to true if you want it sent as a voice note
         }, { quoted: mek });
 
-        // Final reaction for success
+        // Final success reaction
         await conn.sendMessage(from, { react: { text: '✅', key: mek.key } });
 
     } catch (e) {

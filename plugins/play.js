@@ -1,69 +1,44 @@
 const { cmd } = require('../command');
 const axios = require('axios');
-const yts = require('yt-search');
 
 cmd({
     pattern: "play",
-    alias: ["song", "music"],
-    use: ".play <song name>",
-    react: "🎶",
-    desc: "Search and download audio from YouTube.",
-    category: "download",
+    desc: "Download song from YouTube",
+    category: "downloader",
     filename: __filename
-}, async (conn, mek, m, { from, q, reply }) => {
+}, async (conn, m, mek, { from, q, reply }) => {
+
+    if (!q) return reply("❌ Please provide a YouTube link or title");
+
     try {
-        if (!q) return reply("📍 *Please provide a song name or YouTube link.*");
 
-        // 1. Search YouTube for the best result
-        const search = await yts(q);
-        const data = search.videos[0];
-        if (!data) return reply("❌ No results found.");
+        const start = Date.now();
 
-        const videoUrl = data.url;
-
-        // 2. Fetch the download link from the API
-        const response = await axios.get(`https://jawad-tech.vercel.app/download/ytdl?url=${encodeURIComponent(videoUrl)}`);
-        const downloadData = response.data;
-
-        if (!downloadData.status || !downloadData.result.mp3) {
-            return reply("❌ Failed to fetch audio link from the server.");
-        }
-
-        // 3. Info Message
-        const infoMsg = `
-✨ *POPKID-XD PLAYER* ✨
-
-🎵 *Title:* ${downloadData.result.title}
-👤 *Channel:* ${data.author.name}
-🕒 *Duration:* ${data.timestamp}
-🔗 *Link:* ${videoUrl}
-
-> *Downloading audio, please wait...*
-        `.trim();
-
-        // Send thumbnail and details
         await conn.sendMessage(from, { 
-            image: { url: data.thumbnail }, 
-            caption: infoMsg 
-        }, { quoted: mek });
+            react: { text: "🎶", key: mek.key } 
+        });
 
-        // 4. Download the file into a Buffer to prevent "Audio Not Available" errors
-        const audioBuffer = await axios.get(downloadData.result.mp3, { responseType: 'arraybuffer' });
+        // Fetch from Jawad API
+        const api = `https://jawad-tech.vercel.app/download/ytdl?url=${encodeURIComponent(q)}`;
+        const { data } = await axios.get(api);
 
-        // 5. Send the Audio File
-        await conn.sendMessage(from, { 
-            audio: Buffer.from(audioBuffer.data), 
+        if (!data.status) return reply("❌ Failed to fetch song");
+
+        const title = data.result.title;
+        const mp3 = data.result.mp3;
+
+        const end = Date.now();
+
+        await conn.sendMessage(from, {
+            audio: { url: mp3 },
             mimetype: "audio/mpeg",
-            fileName: `${downloadData.result.title}.mp3`,
-            ptt: false // Set to true if you want it sent as a voice note
-        }, { quoted: mek });
+            fileName: `${title}.mp3`,
+            caption: `🎵 *Title:* ${title}\n🚀 *Speed:* ${end - start}ms`
+        }, { quoted: m });
 
-        // Final success reaction
-        await conn.sendMessage(from, { react: { text: '✅', key: mek.key } });
-
-    } catch (e) {
-        console.error("Play Command Error:", e);
-        await conn.sendMessage(from, { react: { text: '❌', key: mek.key } });
-        return reply(`❌ *Error:* ${e.response?.data?.message || e.message || "Could not process request."}`);
+    } catch (err) {
+        console.log(err);
+        reply("❌ Error downloading song");
     }
+
 });

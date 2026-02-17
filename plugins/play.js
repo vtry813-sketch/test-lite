@@ -3,42 +3,39 @@ const axios = require('axios');
 
 cmd({
     pattern: "play",
-    desc: "Download song from YouTube",
-    category: "downloader",
+    desc: "Download and play audio from YouTube",
+    category: "download",
     filename: __filename
 }, async (conn, m, mek, { from, q, reply }) => {
-
-    if (!q) return reply("❌ Please provide a YouTube link or title");
-
     try {
+        if (!q) return await reply("Please provide a YouTube URL! 🔗");
 
-        const start = Date.now();
+        // React with a loading icon
+        await conn.sendMessage(from, { react: { text: "⏳", key: mek.key } });
 
+        // Fetch data from the API
+        const apiUrl = `https://jawad-tech.vercel.app/download/ytdl?url=${encodeURIComponent(q)}`;
+        const response = await axios.get(apiUrl);
+        const data = response.data;
+
+        if (!data.status) {
+            return await reply("❌ Error: Could not find the video. Make sure the link is valid.");
+        }
+
+        const { title, mp3 } = data.result;
+
+        // Send the audio file
         await conn.sendMessage(from, { 
-            react: { text: "🎶", key: mek.key } 
-        });
+            audio: { url: mp3 }, 
+            mimetype: 'audio/mpeg',
+            fileName: `${title}.mp3`
+        }, { quoted: mek });
 
-        // Fetch from Jawad API
-        const api = `https://jawad-tech.vercel.app/download/ytdl?url=${encodeURIComponent(q)}`;
-        const { data } = await axios.get(api);
+        // React with success
+        await conn.sendMessage(from, { react: { text: "✅", key: mek.key } });
 
-        if (!data.status) return reply("❌ Failed to fetch song");
-
-        const title = data.result.title;
-        const mp3 = data.result.mp3;
-
-        const end = Date.now();
-
-        await conn.sendMessage(from, {
-            audio: { url: mp3 },
-            mimetype: "audio/mpeg",
-            fileName: `${title}.mp3`,
-            caption: `🎵 *Title:* ${title}\n🚀 *Speed:* ${end - start}ms`
-        }, { quoted: m });
-
-    } catch (err) {
-        console.log(err);
-        reply("❌ Error downloading song");
+    } catch (e) {
+        console.log(e);
+        await reply(`❌ An error occurred: ${e.message}`);
     }
-
 });

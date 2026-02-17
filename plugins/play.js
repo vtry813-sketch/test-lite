@@ -10,78 +10,53 @@ cmd({
   filename: __filename
 }, async (conn, mek, m, { from, args, reply }) => {
   try {
-    // 1. Validation: Ensure user provided text
-    if (!args.length) {
-      return reply('❌ *Provide a song name or link*\n\nExample:\n.play cardigan');
-    }
-
     const query = args.join(' ');
+    if (!query) return reply('❌ *What song do you want to play, Popkid?*');
 
-    // 2. Visual Feedback: React to show the bot is searching
-    await conn.sendMessage(from, {
-      react: { text: '🎧', key: mek.key }
-    });
+    await conn.sendMessage(from, { react: { text: '🎧', key: mek.key } });
 
-    // 3. The Search Bridge: Find the video URL
+    // 1. Fetching results with error check
     const search = await yts(query);
     const video = search.videos[0];
     
-    if (!video) {
-      return reply('❌ *No results found. Try a different name.*');
+    if (!video || !video.url) {
+      return reply('❌ *Search failed. YouTube might be blocking the request. Try again in a moment.*');
     }
 
-    const videoUrl = video.url;
+    // 2. Preparing your EliteProTech API request
+    const apiUrl = `https://eliteprotech-apis.zone.id/ytdown?url=${encodeURIComponent(video.url)}&format=mp3`;
+    
+    // 3. Fetching download link with Timeout to prevent hanging
+    const response = await axios.get(apiUrl, { timeout: 15000 });
+    const resData = response.data;
 
-    // 4. API Request: Fetch download link from your working API
-    const apiUrl = `https://eliteprotech-apis.zone.id/ytdown?url=${encodeURIComponent(videoUrl)}&format=mp3`;
-    const { data } = await axios.get(apiUrl);
-
-    // 5. Error Handling: Check if API returned success
-    if (!data.success || !data.downloadURL) {
-      return reply('❌ *API Error: Failed to fetch the audio link.*');
+    if (!resData || !resData.success || !resData.downloadURL) {
+      return reply('❌ *The API couldn\'t generate a link for this song.*');
     }
 
-    // 6. Build UI: Use your preferred structure
-    const caption = `
-╭═══〘 *YOUTUBE PLAY* 〙═══⊷
-┃❍ *Title:* ${data.title}
-┃❍ *Duration:* ${video.timestamp}
-┃❍ *Views:* ${video.views}
-┃❍ *Channel:* ${video.author.name}
-╰═════════════════════════⊷
-
-> *${config.BOT_NAME || 'POPKID-MD'}*
-> Powered by EliteProTech API
-    `.trim();
-
-    // 7. Send the Media
+    // 4. Send the message (Standard Popkid-MD Style)
     await conn.sendMessage(from, {
-      audio: { url: data.downloadURL },
+      audio: { url: resData.downloadURL },
       mimetype: 'audio/mpeg',
-      fileName: `${data.title}.mp3`,
+      fileName: `${resData.title}.mp3`,
       contextInfo: {
-        forwardingScore: 999,
-        isForwarded: true,
         externalAdReply: {
-          title: data.title,
-          body: 'Now Playing...',
+          title: resData.title || video.title,
+          body: 'POPKID-MD MUSIC',
           thumbnailUrl: video.thumbnail,
-          sourceUrl: videoUrl,
+          sourceUrl: video.url,
           mediaType: 1,
+          showAdAttribution: true,
           renderLargerThumbnail: true
         }
       }
     }, { quoted: mek });
 
-    // 8. Final Success Reaction
-    await conn.sendMessage(from, {
-      react: { text: '✅', key: mek.key }
-    });
+    await conn.sendMessage(from, { react: { text: '✅', key: mek.key } });
 
   } catch (e) {
-    console.error("Play Command Error:", e);
-    // Handle status 400 or other axios errors gracefully
-    const errorMessage = e.response ? `API Error (${e.response.status})` : e.message;
-    reply(`❌ *Error:* ${errorMessage}`);
+    console.error("PLAY ERROR:", e.message);
+    reply(`❌ *System Error:* ${e.message}`);
+    await conn.sendMessage(from, { react: { text: '⚠️', key: mek.key } });
   }
 });

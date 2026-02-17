@@ -517,8 +517,13 @@ async function migrateOldSession() {
 }
 
 // ============ CONFIGURATION EXPRESS ============
+// ============ CONFIGURATION EXPRESS ============
 const app = express()
 const port = process.env.PORT || 9090
+
+// Ajoute ces deux lignes pour gérer CORS
+const cors = require('cors')
+app.use(cors()) // Autorise toutes les origines (pour la production, tu peux restreindre)
 
 app.use(bodyparser.json())
 app.use(bodyparser.urlencoded({ extended: true }))

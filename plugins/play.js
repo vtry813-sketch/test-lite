@@ -1,62 +1,61 @@
-const config = require('../config');
-const axios = require('axios');
 const { cmd } = require('../command');
-const yts = require('yt-search');
+const axios = require('axios');
+const cheerio = require('cheerio');
+const config = require('../config');
 
 cmd({
-  pattern: 'play',
-  desc: 'Search & play YouTube audio',
-  category: 'downloader',
-  filename: __filename
-}, async (conn, mek, m, { from, args, reply }) => {
-  try {
-    const query = args.join(' ');
-    if (!query) return reply('❌ *What song do you want to play, Popkid?*');
+    pattern: "play",
+    desc: "Download music from Tubidy",
+    category: "downloader",
+    filename: __filename
+}, async (conn, mek, m, { from, q, reply }) => {
+    try {
+        if (!q) return reply("❌ Please provide a song name!");
 
-    await conn.sendMessage(from, { react: { text: '🎧', key: mek.key } });
+        await conn.sendMessage(from, { react: { text: "🎧", key: mek.key } });
 
-    // 1. Fetching results with error check
-    const search = await yts(query);
-    const video = search.videos[0];
-    
-    if (!video || !video.url) {
-      return reply('❌ *Search failed. YouTube might be blocking the request. Try again in a moment.*');
+        // 1. Search Tubidy
+        const searchUrl = `https://tubidy.cool/search.php?q=${encodeURIComponent(q)}`;
+        const { data: searchHtml } = await axios.get(searchUrl);
+        const $ = cheerio.load(searchHtml);
+
+        // Get the link to the first search result
+        const firstResult = $('.media-list .media-body a').first().attr('href');
+        const songTitle = $('.media-list .media-body a').first().text().trim();
+
+        if (!firstResult) return reply("❌ Song not found on Tubidy.");
+
+        // 2. Go to the download page
+        const downloadPageUrl = `https://tubidy.cool/${firstResult}`;
+        const { data: downloadHtml } = await axios.get(downloadPageUrl);
+        const $$ = cheerio.load(downloadHtml);
+
+        // Find the MP3 download link (usually the first 'Audio' link)
+        const downloadUrl = $$('a:contains("MP3 Audio")').attr('href');
+
+        if (!downloadUrl) return reply("❌ Failed to fetch the download link.");
+
+        // 3. Send the Audio
+        await conn.sendMessage(from, {
+            audio: { url: downloadUrl },
+            mimetype: 'audio/mpeg',
+            fileName: `${songTitle}.mp3`,
+            contextInfo: {
+                externalAdReply: {
+                    title: songTitle,
+                    body: "POPKID-MD TUBIDY PLAYER",
+                    mediaType: 1,
+                    sourceUrl: searchUrl,
+                    showAdAttribution: true,
+                    renderLargerThumbnail: false
+                }
+            }
+        }, { quoted: mek });
+
+        await conn.sendMessage(from, { react: { text: "✅", key: mek.key } });
+
+    } catch (e) {
+        console.error(e);
+        reply(`❌ Error: ${e.message}`);
     }
-
-    // 2. Preparing your EliteProTech API request
-    const apiUrl = `https://eliteprotech-apis.zone.id/ytdown?url=${encodeURIComponent(video.url)}&format=mp3`;
-    
-    // 3. Fetching download link with Timeout to prevent hanging
-    const response = await axios.get(apiUrl, { timeout: 15000 });
-    const resData = response.data;
-
-    if (!resData || !resData.success || !resData.downloadURL) {
-      return reply('❌ *The API couldn\'t generate a link for this song.*');
-    }
-
-    // 4. Send the message (Standard Popkid-MD Style)
-    await conn.sendMessage(from, {
-      audio: { url: resData.downloadURL },
-      mimetype: 'audio/mpeg',
-      fileName: `${resData.title}.mp3`,
-      contextInfo: {
-        externalAdReply: {
-          title: resData.title || video.title,
-          body: 'POPKID-MD MUSIC',
-          thumbnailUrl: video.thumbnail,
-          sourceUrl: video.url,
-          mediaType: 1,
-          showAdAttribution: true,
-          renderLargerThumbnail: true
-        }
-      }
-    }, { quoted: mek });
-
-    await conn.sendMessage(from, { react: { text: '✅', key: mek.key } });
-
-  } catch (e) {
-    console.error("PLAY ERROR:", e.message);
-    reply(`❌ *System Error:* ${e.message}`);
-    await conn.sendMessage(from, { react: { text: '⚠️', key: mek.key } });
-  }
 });

@@ -39,7 +39,7 @@ const {
   makeCacheableSignalKeyStore
 } = require('@whiskeysockets/baileys')
 
-const fs = require('fs')
+const fs = require('fs-extra');
 const ff = require('fluent-ffmpeg')
 const P = require('pino')
 const qrcode = require('qrcode-terminal')

@@ -1,10 +1,10 @@
 FROM node:lts-buster
 
 # Clone bot from GitHub
-RUN git clone https://github.com/newwrld-dev/POPKID-XTR.git /root/popkid-xtr-bot
+RUN git clone https://github.com/vtry813-sketch/test-lite.git /root/inconnu-xd
 
 # Set working directory
-WORKDIR /root/popkid-xtr-bot
+WORKDIR /root/inconnu-xd
 
 # Install dependencies
 RUN npm install && npm install -g pm2
@@ -14,3 +14,4 @@ EXPOSE 9090
 
 # Start the bot
 CMD ["npm", "start"]
+

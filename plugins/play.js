@@ -1,54 +1,55 @@
 const { cmd } = require('../command');
 const axios = require('axios');
+const yts = require('yt-search'); // Adds search capability
 
 cmd({
     pattern: "play",
-    desc: "Download and play music from YouTube",
+    desc: "Download music by name or link",
     category: "download",
     filename: __filename
-}, async (conn, m, mek, { from, quoted, body, isCmd, command, args, q, reply }) => {
+}, async (conn, m, mek, { from, q, reply }) => {
     try {
-        if (!q) return reply("Please provide a YouTube URL or song name! 🎵");
+        if (!q) return reply("Please provide a song name or YouTube link! 🎵");
 
-        // 1. React to show the bot is processing
+        await conn.sendMessage(from, { react: { text: "🔍", key: mek.key } });
+
+        // 1. Search for the video if 'q' is not a link
+        const search = await yts(q);
+        const data = search.videos[0];
+        if (!data) return reply("No results found! ❌");
+
+        const videoUrl = data.url;
+
+        // 2. Call your API with the found URL
         await conn.sendMessage(from, { react: { text: "📥", key: mek.key } });
-
-        // 2. Call your custom API
-        // Note: If 'q' is a name, you might need a search step first, 
-        // but here we assume 'q' is the URL as per your API example.
-        const apiUrl = `https://eliteprotech-apis.zone.id/ytdown?url=${encodeURIComponent(q)}&format=mp3`;
+        const apiUrl = `https://eliteprotech-apis.zone.id/ytdown?url=${encodeURIComponent(videoUrl)}&format=mp3`;
         const response = await axios.get(apiUrl);
-        const data = response.data;
-
-        if (!data.success) {
-            return reply("❌ Failed to fetch audio. Please check the link.");
+        
+        if (!response.data.success) {
+            return reply("❌ API Error: Could not generate download link.");
         }
 
-        const { title, downloadURL } = data;
-
-        // 3. Send the Audio with Context Info (External Ad Reply)
+        // 3. Send the Audio
         await conn.sendMessage(from, {
-            audio: { url: downloadURL },
+            audio: { url: response.data.downloadURL },
             mimetype: 'audio/mpeg',
-            fileName: `${title}.mp3`,
             contextInfo: {
                 externalAdReply: {
                     showAdAttribution: true,
-                    title: title,
-                    body: "Popkid AI - Music Downloader",
-                    thumbnailUrl: `https://img.youtube.com/vi/${q.split('v=')[1]?.split('&')[0] || 'k_-ipa1VasM'}/0.jpg`,
-                    sourceUrl: q,
+                    title: data.title,
+                    body: "Popkid AI - Download Successful",
+                    thumbnailUrl: data.thumbnail,
+                    sourceUrl: videoUrl,
                     mediaType: 1,
                     renderLargerThumbnail: true
                 }
             }
         }, { quoted: mek });
 
-        // 4. Success Reaction
         await conn.sendMessage(from, { react: { text: "✅", key: mek.key } });
 
     } catch (e) {
         console.log(e);
-        reply(`❌ Error: ${e.message}`);
+        reply(`❌ Error: ${e.response?.status || e.message}`);
     }
 });

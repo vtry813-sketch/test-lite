@@ -1,59 +1,64 @@
 const { cmd } = require('../command');
 const axios = require('axios');
-const cheerio = require('cheerio');
+const yts = require('yt-search');
+const fs = require('fs');
+const path = require('path');
+
+// API Base
+const API_BASE = 'https://api-aswin-sparky.koyeb.app/api/downloader';
 
 cmd({
     pattern: "play",
-    desc: "Fast McTwize downloader",
+    desc: "Premium Audio Downloader",
     category: "downloader",
     filename: __filename
 }, async (conn, mek, m, { from, q, reply }) => {
     try {
-        if (!q) return reply("❌ Please provide a song name!");
+        if (!q) return reply("🎵 *Please provide a song name!*\n*Example:* .play Burna Boy City Boys");
 
+        // 1. React & Search
         await conn.sendMessage(from, { react: { text: "🔍", key: mek.key } });
+        const search = await yts(q);
+        const video = search.videos[0];
+        if (!video) return reply("❌ Song not found.");
 
-        const searchUrl = `https://mctwize.co.za/search?q=${encodeURIComponent(q)}`;
+        const videoUrl = video.url;
+        const title = video.title;
 
-        const { data } = await axios.get(searchUrl, {
-            headers: {
-                "User-Agent":
-                    "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
-            }
-        });
+        // 2. Fetch Download Link from Aswin API
+        await conn.sendMessage(from, { react: { text: "📥", key: mek.key } });
+        const apiUrl = `${API_BASE}/song?search=${encodeURIComponent(videoUrl)}`;
+        const response = await axios.get(apiUrl);
 
-        const $ = cheerio.load(data);
-
-        // 🔥 DIRECTLY get first /download/ link
-        const firstDownload = $('a[href^="/download/"]').first();
-
-        if (!firstDownload.length) {
-            return reply("❌ Song not found on McTwize.");
+        if (!response.data || !response.data.status) {
+            return reply("❌ API Error: Could not fetch download link.");
         }
 
-        let downloadPath = firstDownload.attr("href");
-        let title = firstDownload.text().trim() || q;
+        const downloadURL = response.data.data.url;
 
-        // Make full link
-        const finalUrl = `https://mctwize.co.za${downloadPath}`;
-
-        // Send audio directly
-        await conn.sendMessage(
-            from,
-            {
-                audio: { url: finalUrl },
-                mimetype: "audio/mpeg",
-                fileName: `${title}.mp3`,
-            },
-            { quoted: mek }
-        );
-
+        // 3. Send the Audio with Premium Ad-Reply
         await conn.sendMessage(from, {
-            react: { text: "✅", key: mek.key }
-        });
+            audio: { url: downloadURL },
+            mimetype: 'audio/mpeg',
+            fileName: `${title}.mp3`,
+            contextInfo: {
+                externalAdReply: {
+                    title: title,
+                    body: "POPKID-MD MUSIC HUB",
+                    thumbnailUrl: video.thumbnail,
+                    sourceUrl: videoUrl,
+                    mediaType: 1,
+                    showAdAttribution: true,
+                    renderLargerThumbnail: true
+                }
+            }
+        }, { quoted: mek });
 
-    } catch (err) {
-        console.error(err);
-        reply(`❌ Error: ${err.message}`);
+        // 4. Final Reaction
+        await conn.sendMessage(from, { react: { text: "✅", key: mek.key } });
+
+    } catch (e) {
+        console.error(e);
+        reply(`❌ System Error: ${e.message}`);
     }
 });

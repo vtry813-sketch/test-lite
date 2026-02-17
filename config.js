@@ -16,7 +16,6 @@ module.exports = {
     PREFIX: process.env.PREFIX || ".",
     BOT_NAME: process.env.BOT_NAME || "𝐏𝐎𝐏𝐊𝐈𝐃 𝐌𝐃",
     STICKER_NAME: process.env.STICKER_NAME || "𝐏𝐎𝐏𝐊𝐈𝐃 𝐌𝐃",
-    OWNER_NUMBER: process.env.OWNER_NUMBER || "254732297194",
     OWNER_NAME: process.env.OWNER_NAME || "𝐏𝐎𝐏𝐊𝐈𝐃",
     MODE: process.env.MODE || "public",          // public/private/inbox/groups
     ALWAYS_ONLINE: process.env.ALWAYS_ONLINE || "true",

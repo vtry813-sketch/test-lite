@@ -21,7 +21,7 @@
     "pm2": "^6.0.13",
     "util": "^0.12.4",
     "express": "latest",
-    "axios": "^1.2.5",
+    "axios": "^1.6.0",
     "crypto-digest-sync": "^1.0.0",
     "crypto-js": "latest",
     "file_size_url": "1.0.4",

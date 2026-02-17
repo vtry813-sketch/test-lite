@@ -371,7 +371,8 @@ async function EmpirePair(number, res) {
     if (existingSession) {
       const restoredCreds = await getSessionFromMongoDB(sanitizedNumber)
       if (restoredCreds) {
-        fs.ensureDirSync(sessionPath)   // utiliser fs-extra ou fs.mkdirSync avec option recursive
+        // Correction ici : remplacer ensureDirSync par mkdirSync avec option recursive
+        fs.mkdirSync(sessionPath, { recursive: true })
         fs.writeFileSync(path.join(sessionPath, 'creds.json'), JSON.stringify(restoredCreds, null, 2))
         console.log(`🔄 Restored existing session from MongoDB for ${sanitizedNumber}`)
       }

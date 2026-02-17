@@ -3,7 +3,7 @@ const axios = require('axios');
 const yts = require('yt-search');
 const fs = require('fs');
 const path = require('path');
-const { buttons } = require('gifted-btns');
+const { sendButtons } = require('gifted-btns'); // Ensure this is installed
 
 // API Configuration
 const API_BASE = 'https://api-aswin-sparky.koyeb.app/api/downloader';
@@ -21,14 +21,14 @@ if (!fs.existsSync(TEMP_DIR)) fs.mkdirSync(TEMP_DIR, { recursive: true });
 // Helper: Clean Filename
 const cleanName = (name) => name.replace(/[^\w\s.-]/gi, '').substring(0, 50);
 
-// ==================== 1. PLAY (Search + Buttons) ====================
+// ==================== 1. PLAY (Search + Gifted Buttons) ====================
 cmd({
     pattern: "play",
     alias: ["song", "audio"],
-    desc: "Search and download audio with buttons",
+    desc: "Search and download audio with gifted buttons",
     category: "downloader",
     filename: __filename
-}, async (conn, mek, m, { from, q, reply }) => {
+}, async (conn, mek, m, { from, q, reply, botName, botFooter, botPic }) => {
     try {
         if (!q) return reply("🎵 *What song are we playing, Popkid?*");
         await conn.sendMessage(from, { react: { text: "🔍", key: mek.key } });
@@ -37,84 +37,119 @@ cmd({
         const video = search.videos[0];
         if (!video) return reply("❌ No results found.");
 
-        const btnList = [
-            { buttonId: `.ytmp3 ${video.url}`, buttonText: { displayText: '🎵 AUDIO' }, type: 1 },
-            { buttonId: `.ytmp4 ${video.url}`, buttonText: { displayText: '🎥 VIDEO' }, type: 1 },
-            { buttonId: `.mp3doc ${video.url}`, buttonText: { displayText: '📁 DOCUMENT' }, type: 1 }
-        ];
+        const dateNow = Date.now();
 
-        await conn.sendMessage(from, {
-            image: { url: video.thumbnail },
-            caption: `*POPKID-MD PLAYER*\n\n*Title:* ${video.title}\n*Duration:* ${video.timestamp}\n*Author:* ${video.author.name}`,
-            footer: 'Created by Popkid Kenya',
-            buttons: btnList,
-            headerType: 4
-        }, { quoted: mek });
+        // Send Buttons using Gifted Style
+        await sendButtons(conn, from, {
+            title: `𝐏𝐎𝐏𝐊𝐈𝐃-𝐌𝐃 𝐒𝐎𝐍𝐆 𝐃𝐎𝐖𝐍𝐋𝐎𝐀𝐃𝐄𝐑`,
+            text: `⿻ *Title:* ${video.title}\n⿻ *Duration:* ${video.timestamp}\n⿻ *Author:* ${video.author.name}\n\n*Select download format:*`,
+            footer: botFooter || 'Created by Popkid Kenya',
+            image: video.thumbnail || botPic,
+            buttons: [
+                { id: `aud_${video.id}_${dateNow}`, text: "Audio 🎶" },
+                { id: `doc_${video.id}_${dateNow}`, text: "Document 📄" },
+                {
+                    name: "cta_url",
+                    buttonParamsJson: JSON.stringify({
+                        display_text: "Watch on Youtube",
+                        url: video.url,
+                    }),
+                },
+            ],
+        });
+
+        // Response Handler for Buttons
+        const handleResponse = async (event) => {
+            const messageData = event.messages[0];
+            if (!messageData.message) return;
+
+            const selectedButtonId = messageData.message?.templateButtonReplyMessage?.selectedId || 
+                                     messageData.message?.buttonsResponseMessage?.selectedButtonId;
+            
+            if (!selectedButtonId || !selectedButtonId.includes(`_${dateNow}`)) return;
+            if (messageData.key?.remoteJid !== from) return;
+
+            await conn.sendMessage(from, { react: { text: "📥", key: messageData.key } });
+
+            try {
+                const { data } = await axios.get(API_ENDPOINTS.song(video.url));
+                if (!data.status) return;
+
+                const buttonType = selectedButtonId.split("_")[0];
+
+                if (buttonType === "aud") {
+                    await conn.sendMessage(from, { audio: { url: data.data.url }, mimetype: "audio/mpeg" }, { quoted: messageData });
+                } else {
+                    await conn.sendMessage(from, { document: { url: data.data.url }, mimetype: "audio/mpeg", fileName: `${cleanName(video.title)}.mp3` }, { quoted: messageData });
+                }
+                
+                await conn.sendMessage(from, { react: { text: "✅", key: messageData.key } });
+                conn.ev.off("messages.upsert", handleResponse);
+            } catch (err) { 
+                conn.ev.off("messages.upsert", handleResponse); 
+            }
+        };
+
+        conn.ev.on("messages.upsert", handleResponse);
+        setTimeout(() => conn.ev.off("messages.upsert", handleResponse), 120000);
+
     } catch (e) { reply(`❌ Error: ${e.message}`); }
 });
 
-// ==================== 2. YTMP3 (Audio Message) ====================
+// ==================== 2. VIDEO (Gifted Style) ====================
 cmd({
-    pattern: "ytmp3",
-    desc: "Download YouTube as Audio",
+    pattern: "video",
+    alias: ["ytv", "ytmp4"],
+    desc: "Search and download video with gifted buttons",
     category: "downloader",
     filename: __filename
-}, async (conn, mek, m, { from, q, reply }) => {
+}, async (conn, mek, m, { from, q, reply, botName, botFooter, botPic }) => {
     try {
-        if (!q) return;
-        await conn.sendMessage(from, { react: { text: "📥", key: mek.key } });
-        const { data } = await axios.get(API_ENDPOINTS.song(q));
-        if (!data.status) throw new Error("API Offline");
+        if (!q) return reply("🎥 *Which video, Popkid?*");
+        await conn.sendMessage(from, { react: { text: "🔍", key: mek.key } });
 
-        await conn.sendMessage(from, {
-            audio: { url: data.data.url },
-            mimetype: 'audio/mpeg',
-            fileName: `${data.data.title}.mp3`
-        }, { quoted: mek });
-        await conn.sendMessage(from, { react: { text: "✅", key: mek.key } });
-    } catch (e) { reply(`❌ Audio Error: ${e.message}`); }
-});
+        const search = await yts(q);
+        const video = search.videos[0];
+        if (!video) return reply("❌ Video not found.");
 
-// ==================== 3. YTMP4 (Video) ====================
-cmd({
-    pattern: "ytmp4",
-    alias: ["ytv"],
-    desc: "Download YouTube as Video",
-    category: "downloader",
-    filename: __filename
-}, async (conn, mek, m, { from, q, reply }) => {
-    try {
-        if (!q) return;
-        await conn.sendMessage(from, { react: { text: "🎬", key: mek.key } });
-        const { data } = await axios.get(API_ENDPOINTS.ytv(q));
-        
-        await conn.sendMessage(from, {
-            video: { url: data.data.url },
-            caption: `*${data.data.title}*\nDownloaded by POPKID-MD`,
-            mimetype: 'video/mp4'
-        }, { quoted: mek });
+        const dateNow = Date.now();
+
+        await sendButtons(conn, from, {
+            title: `𝐏𝐎𝐏𝐊𝐈𝐃-𝐌𝐃 𝐕𝐈𝐃𝐄𝐎 𝐃𝐎𝐖𝐍𝐋𝐎𝐀𝐃𝐄𝐑`,
+            text: `⿻ *Title:* ${video.title}\n⿻ *Duration:* ${video.timestamp}\n\n*Select format:*`,
+            footer: botFooter || 'POPKID-MD',
+            image: video.thumbnail || botPic,
+            buttons: [
+                { id: `vid_${video.id}_${dateNow}`, text: "Video 🎥" },
+                { id: `vdoc_${video.id}_${dateNow}`, text: "Video Document 📄" }
+            ],
+        });
+
+        const handleVideoResponse = async (event) => {
+            const messageData = event.messages[0];
+            const selectedButtonId = messageData.message?.templateButtonReplyMessage?.selectedId || 
+                                     messageData.message?.buttonsResponseMessage?.selectedButtonId;
+            
+            if (!selectedButtonId || !selectedButtonId.includes(`_${dateNow}`)) return;
+
+            await conn.sendMessage(from, { react: { text: "🎥", key: messageData.key } });
+            const { data } = await axios.get(API_ENDPOINTS.ytv(video.url));
+            const buttonType = selectedButtonId.split("_")[0];
+
+            if (buttonType === "vid") {
+                await conn.sendMessage(from, { video: { url: data.data.url }, caption: video.title }, { quoted: messageData });
+            } else {
+                await conn.sendMessage(from, { document: { url: data.data.url }, mimetype: "video/mp4", fileName: `${cleanName(video.title)}.mp4` }, { quoted: messageData });
+            }
+            conn.ev.off("messages.upsert", handleVideoResponse);
+        };
+
+        conn.ev.on("messages.upsert", handleVideoResponse);
+        setTimeout(() => conn.ev.off("messages.upsert", handleVideoResponse), 120000);
     } catch (e) { reply(`❌ Video Error: ${e.message}`); }
 });
 
-// ==================== 4. MP3DOC (Document Mode) ====================
-cmd({
-    pattern: "mp3doc",
-    desc: "Download MP3 as Document",
-    category: "downloader",
-    filename: __filename
-}, async (conn, mek, m, { from, q, reply }) => {
-    try {
-        const { data } = await axios.get(API_ENDPOINTS.song(q));
-        await conn.sendMessage(from, {
-            document: { url: data.data.url },
-            mimetype: 'audio/mpeg',
-            fileName: `${cleanName(data.data.title)}.mp3`,
-            caption: `🎵 *Title:* ${data.data.title}\n*POPKID-MD DOCS*`
-        }, { quoted: mek });
-    } catch (e) { reply("❌ Document error."); }
-});
-
-// ==================== 5. YTS (Stylish Search) ====================
+// ==================== 3. YT Search (Stylish) ====================
 cmd({
     pattern: "yts",
     alias: ["ytsearch"],
@@ -131,7 +166,7 @@ cmd({
     reply(txt);
 });
 
-// ==================== 6. SPOTIFY ====================
+// ==================== 4. Spotify & TikTok ====================
 cmd({
     pattern: "spotify",
     desc: "Download Spotify music",
@@ -141,15 +176,10 @@ cmd({
     try {
         if (!q) return reply("🔗 Provide Spotify Link");
         const { data } = await axios.get(API_ENDPOINTS.spotify(q));
-        await conn.sendMessage(from, {
-            audio: { url: data.data.download },
-            mimetype: 'audio/mpeg',
-            fileName: `${data.data.title}.mp3`
-        }, { quoted: mek });
-    } catch (e) { reply("❌ Spotify Link Error"); }
+        await conn.sendMessage(from, { audio: { url: data.data.download }, mimetype: 'audio/mpeg', fileName: `${data.data.title}.mp3` }, { quoted: mek });
+    } catch (e) { reply("❌ Spotify Error"); }
 });
 
-// ==================== 7. TIKTOK ====================
 cmd({
     pattern: "tiktok",
     alias: ["tt"],
@@ -160,14 +190,11 @@ cmd({
     try {
         if (!q) return reply("🔗 Provide TikTok Link");
         const { data } = await axios.get(API_ENDPOINTS.tiktok(q));
-        await conn.sendMessage(from, {
-            video: { url: data.data.video },
-            caption: `📱 *TikTok:* ${data.data.title}`
-        }, { quoted: mek });
+        await conn.sendMessage(from, { video: { url: data.data.video }, caption: `📱 *TikTok:* ${data.data.title}` }, { quoted: mek });
     } catch (e) { reply("❌ TikTok Error"); }
 });
 
-// ==================== 8. CLEANUP ====================
+// ==================== 5. Utility ====================
 cmd({
     pattern: "cleanup",
     desc: "Clean temp files",

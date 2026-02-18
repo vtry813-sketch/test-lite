@@ -1,7 +1,8 @@
 
-// * POPKID-MD avec gestion MongoDB et endpoints
-// * (Intégration du système de pairing, sessions multiples, auto-reconnect)
-// */
+/**
+ * POPKID-MD avec gestion MongoDB et endpoints
+ * (Intégration du système de pairing, sessions multiples, auto-reconnect)
+ */
 
 console.clear()
 console.log("📳 Starting POPKID-MD with MongoDB...")
@@ -898,12 +899,12 @@ setTimeout(async () => {
   await migrateOldSession()
   await autoReconnectFromMongoDB()
 }, 8000)
-  
+
 
 // Voilà ce qui a changé par rapport à ton original :
 
 // **`loadPlugins()`** — charge tous les fichiers de `/plugins/` une seule fois (Node.js met en cache les `require`, donc pas de double chargement si plusieurs numéros se connectent).
 
-//**`attachMessageHandler(socket, number)`** — attache un listener `messages.upsert` propre à **chaque socket**, ce qui permet à chaque utilisateur connecté d'utiliser les commandes indépendamment. Il gère aussi les messages éphémères, les boutons, les listes, et vérifie `fromMe` pour les commandes owner.
+// **`attachMessageHandler(socket, number)`** — attache un listener `messages.upsert` propre à **chaque socket**, ce qui permet à chaque utilisateur connecté d'utiliser les commandes indépendamment. Il gère aussi les messages éphémères, les boutons, les listes, et vérifie `fromMe` pour les commandes owner.
 
-//**Dans `connection === 'open'`** — appel de `loadPlugins()` puis `attachMessageHandler(socket, sanitizedNumber)` juste après la connexion, avant le message de bienvenue (qui affiche maintenant le nombre de commandes chargées).
+// **Dans `connection === 'open'`** — appel de `loadPlugins()` puis `attachMessageHandler(socket, sanitizedNumber)` juste après la connexion, avant le message de bienvenue (qui affiche maintenant le nombre de commandes chargées).

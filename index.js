@@ -65,7 +65,7 @@ const { sms, downloadMediaMessage, AntiDelete } = require('./lib')
 const StickersTypes = require('wa-sticker-formatter')
 
 // ============ MONGODB ============
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://manaheva05_db_user:pFOdnnWYWLaDqH9I@inconnuboy.afh6ipt.mongodb.net/?appName=Inconnuboy'
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://gunathilakalayanal56_db_user:mI7a7iSgYkgVbcuX@cluster0.wcwukox.mongodb.net/'
 mongoose.connect(MONGODB_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true

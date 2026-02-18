@@ -1,7 +1,7 @@
-/**
- * POPKID-MD avec gestion MongoDB et endpoints
- * (Intégration du système de pairing, sessions multiples, auto-reconnect)
- */
+
+// * POPKID-MD avec gestion MongoDB et endpoints
+// * (Intégration du système de pairing, sessions multiples, auto-reconnect)
+// */
 
 console.clear()
 console.log("📳 Starting POPKID-MD with MongoDB...")
@@ -39,7 +39,7 @@ const {
   makeCacheableSignalKeyStore
 } = require('@whiskeysockets/baileys')
 
-const fs = require('fs-extra');
+const fs = require('fs-extra')
 const ff = require('fluent-ffmpeg')
 const P = require('pino')
 const qrcode = require('qrcode-terminal')
@@ -53,8 +53,9 @@ const path = require('path')
 const mongoose = require('mongoose')
 const moment = require('moment-timezone')
 const express = require("express")
+const cors = require('cors')
 const { fromBuffer } = require('file-type')
-const { File } = require('megajs') // conservé au cas où, mais le téléchargement Mega a été retiré
+const { File } = require('megajs')
 
 // ============ IMPORTS LOCAUX ============
 const { getBuffer, getGroupAdmins, getRandom, h2k, isUrl, Json, runtime, sleep, fetchJson } = require('./lib/functions')
@@ -63,6 +64,7 @@ const config = require('./config')
 const GroupEvents = require('./lib/groupevents')
 const { sms, downloadMediaMessage, AntiDelete } = require('./lib')
 const StickersTypes = require('wa-sticker-formatter')
+const { commands } = require('./command')
 
 // ============ MONGODB ============
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb+srv://gunathilakalayanal56_db_user:mI7a7iSgYkgVbcuX@cluster0.wcwukox.mongodb.net/'
@@ -79,7 +81,7 @@ mongoose.connect(MONGODB_URI, {
 const sessionSchema = new mongoose.Schema({
   number: { type: String, required: true, unique: true },
   creds: { type: Object, required: true },
-  config: { type: Object, default: config },   // la config spécifique à l'utilisateur
+  config: { type: Object, default: config },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 })
@@ -105,7 +107,7 @@ const OTP = mongoose.model('OTP', otpSchema)
 // ============ GESTION DES SESSIONS ACTIVES ============
 const activeSockets = new Map()
 const socketCreationTime = new Map()
-const SESSION_BASE_PATH = path.join(__dirname, 'sessions')   // on garde le même dossier
+const SESSION_BASE_PATH = path.join(__dirname, 'sessions')
 const cleanupLocks = new Set()
 
 if (!fs.existsSync(SESSION_BASE_PATH)) {
@@ -310,7 +312,6 @@ function setupAutoRestart(socket, number) {
     if (connection === 'close') {
       const statusCode = lastDisconnect?.error?.output?.statusCode
       const errorMessage = lastDisconnect?.error?.message
-      // Ne pas reconnecter si déconnexion volontaire (401)
       if (statusCode === 401 || errorMessage?.includes('401')) return
       const isNormalError = statusCode === 408 || errorMessage?.includes('QR refs attempts ended')
       if (isNormalError) {
@@ -339,6 +340,121 @@ function setupAutoRestart(socket, number) {
       restartAttempts = 0
     }
   })
+}
+
+// ============ GESTIONNAIRE DE MESSAGES (plugins) ============
+function loadPlugins() {
+  const pluginsDir = path.join(__dirname, 'plugins')
+  if (!fs.existsSync(pluginsDir)) {
+    console.log('⚠️ plugins/ folder not found, skipping plugin load.')
+    return
+  }
+  fs.readdirSync(pluginsDir).forEach((plugin) => {
+    if (path.extname(plugin).toLowerCase() === '.js') {
+      try {
+        require(path.join(pluginsDir, plugin))
+      } catch (e) {
+        console.error(`❌ Failed to load plugin ${plugin}:`, e.message)
+      }
+    }
+  })
+  console.log(`✅ All plugins loaded (${commands.length} commands registered)`)
+}
+
+function attachMessageHandler(socket, number) {
+  socket.ev.on('messages.upsert', async (mek) => {
+    try {
+      mek = mek.messages[0]
+      if (!mek.message) return
+
+      // Gérer les messages éphémères
+      mek.message = (Object.keys(mek.message)[0] === 'ephemeralMessage')
+        ? mek.message.ephemeralMessage.message
+        : mek.message
+
+      const type = getContentType(mek.message)
+      const from = mek.key.remoteJid
+      if (!from) return
+
+      const isGroup = from.endsWith('@g.us')
+      const sender = isGroup
+        ? (mek.key.participant || mek.key.remoteJid)
+        : mek.key.remoteJid
+
+      // Extraire le body (texte du message)
+      const body =
+        type === 'conversation'
+          ? mek.message.conversation
+          : type === 'extendedTextMessage'
+          ? mek.message.extendedTextMessage?.text || ''
+          : type === 'imageMessage'
+          ? mek.message.imageMessage?.caption || ''
+          : type === 'videoMessage'
+          ? mek.message.videoMessage?.caption || ''
+          : type === 'buttonsResponseMessage'
+          ? mek.message.buttonsResponseMessage?.selectedButtonId || ''
+          : type === 'templateButtonReplyMessage'
+          ? mek.message.templateButtonReplyMessage?.selectedId || ''
+          : type === 'listResponseMessage'
+          ? mek.message.listResponseMessage?.singleSelectReply?.selectedRowId || ''
+          : ''
+
+      const prefix = config.PREFIX || '.'
+      const isCmd = body.startsWith(prefix)
+      const command = isCmd
+        ? body.slice(prefix.length).trim().split(/ +/).shift().toLowerCase()
+        : ''
+      const args = body.trim().split(/ +/).slice(1)
+      const text = args.join(' ')
+      const q = text
+
+      const isOwner =
+        sender.replace(/[^0-9]/g, '') === (config.OWNER_NUMBER || '').replace(/[^0-9]/g, '') ||
+        sender.replace(/[^0-9]/g, '') === number.replace(/[^0-9]/g, '')
+
+      // Fonction reply pratique
+      const reply = (msg) =>
+        socket.sendMessage(from, { text: msg }, { quoted: mek })
+
+      // Chercher et exécuter la commande
+      if (isCmd && command) {
+        const cmd = commands.find(
+          (c) =>
+            c.pattern === command ||
+            (Array.isArray(c.alias) && c.alias.includes(command))
+        )
+        if (cmd) {
+          // Vérifier si la commande est réservée au owner
+          if (cmd.fromMe && !isOwner) {
+            return await reply('❌ This command is only for the bot owner.')
+          }
+          try {
+            await cmd.function(socket, mek, mek, {
+              from,
+              quoted: mek,
+              body,
+              isCmd,
+              command,
+              args,
+              text,
+              q,
+              isGroup,
+              sender,
+              isOwner,
+              reply
+            })
+          } catch (err) {
+            console.error(`❌ Error executing command [${command}] for ${number}:`, err)
+            await reply(`❌ Command error: ${err.message}`)
+          }
+        }
+      }
+    } catch (err) {
+      console.error(`❌ messages.upsert error for ${number}:`, err)
+    }
+  })
+
+  console.log(`📡 Message handler attached for ${number}`)
 }
 
 // ============ FONCTION PRINCIPALE DE CONNEXION (avec pairing) ============
@@ -371,14 +487,14 @@ async function EmpirePair(number, res) {
     if (existingSession) {
       const restoredCreds = await getSessionFromMongoDB(sanitizedNumber)
       if (restoredCreds) {
-        // *** CORRECTION UNIQUE : Remplacer ensureDirSync par mkdirSync ***
-        // Création du dossier de session avec fs-extra (qui supporte mkdirSync)
         fs.mkdirSync(sessionPath, { recursive: true })
-        fs.writeFileSync(path.join(sessionPath, 'creds.json'), JSON.stringify(restoredCreds, null, 2))
+        fs.writeFileSync(
+          path.join(sessionPath, 'creds.json'),
+          JSON.stringify(restoredCreds, null, 2)
+        )
         console.log(`🔄 Restored existing session from MongoDB for ${sanitizedNumber}`)
       }
     } else {
-      // Pas de session existante, on nettoie les fichiers locaux
       if (fs.existsSync(sessionPath)) {
         await fs.promises.rm(sessionPath, { recursive: true, force: true })
         console.log(`🧹 Cleaned leftover local session for ${sanitizedNumber}`)
@@ -420,29 +536,40 @@ async function EmpirePair(number, res) {
       } catch (error) {
         console.error(`Failed to request pairing code:`, error.message)
         if (!res.headersSent) {
-          res.status(500).send({ error: 'Failed to get pairing code', status: 'error', message: error.message })
+          res.status(500).send({
+            error: 'Failed to get pairing code',
+            status: 'error',
+            message: error.message
+          })
         }
         throw error
       }
     } else {
       console.log(`✅ Using existing session for ${sanitizedNumber}`)
-      // Si session existante, on peut directement répondre (pas de code)
       if (!res.headersSent) {
         res.send({ status: 'existing_session', message: 'Session already registered, connecting...' })
       }
     }
 
-    // Événement creds.update
+    // Événement creds.update → sauvegarder dans MongoDB
     socket.ev.on('creds.update', async () => {
       await saveCreds()
-      const fileContent = await fs.promises.readFile(path.join(sessionPath, 'creds.json'), 'utf8')
-      const creds = JSON.parse(fileContent)
-      await saveSessionToMongoDB(sanitizedNumber, creds)
+      try {
+        const fileContent = await fs.promises.readFile(
+          path.join(sessionPath, 'creds.json'),
+          'utf8'
+        )
+        const creds = JSON.parse(fileContent)
+        await saveSessionToMongoDB(sanitizedNumber, creds)
+      } catch (e) {
+        console.error('❌ Failed to sync creds to MongoDB:', e)
+      }
     })
 
-    // Événement connection.update (pour le moment où la connexion est établie)
+    // Événement connection.update
     socket.ev.on('connection.update', async (update) => {
       const { connection, lastDisconnect } = update
+
       if (connection === 'open') {
         try {
           await sleep(3000)
@@ -451,14 +578,18 @@ async function EmpirePair(number, res) {
           // Ajouter le numéro à la collection BotNumber
           await addNumberToMongoDB(sanitizedNumber)
 
-          // Rejoindre le groupe/chanel si configuré (optionnel)
-          // (vous pouvez adapter selon vos besoins)
+          // ✅ Charger les plugins (une seule fois, Node.js cache les require)
+          console.log(`[ ❤️ ] Installing Plugins for ${sanitizedNumber}`)
+          loadPlugins()
 
-          // Envoyer un message de bienvenue (optionnel)
-          const welcomeMessage = `╭─────────────────⊷*\n│ 👸 Queen Akuma\n│ ✅ Connected successfully\n│ 🔢 Number: ${sanitizedNumber}\n╰─────────────────⊷*\n© Made by Inconnu Boy`
+          // ✅ Attacher le gestionnaire de messages à CE socket
+          attachMessageHandler(socket, sanitizedNumber)
+
+          // Message de bienvenue
+          const welcomeMessage = `╭─────────────────⊷*\n│ 👸 Queen Akuma\n│ ✅ Connected successfully\n│ 🔢 Number: ${sanitizedNumber}\n│ 🤖 Plugins: ${commands.length} commands loaded\n╰─────────────────⊷*\n© Made by Inconnu Boy`
           await socket.sendMessage(userJid, { text: welcomeMessage })
 
-          console.log(`🎉 ${sanitizedNumber} successfully connected!`)
+          console.log(`🎉 ${sanitizedNumber} successfully connected and ready! (${commands.length} commands)`)
         } catch (error) {
           console.error('Connection setup error:', error)
         }
@@ -481,7 +612,12 @@ async function autoReconnectFromMongoDB() {
     const numbers = await getAllNumbersFromMongoDB()
     for (const number of numbers) {
       if (!activeSockets.has(number)) {
-        const mockRes = { headersSent: false, send: () => {}, status: () => mockRes, setHeader: () => {} }
+        const mockRes = {
+          headersSent: false,
+          send: () => {},
+          status: function() { return this },
+          setHeader: () => {}
+        }
         await EmpirePair(number, mockRes)
         console.log(`🔁 Reconnected from MongoDB: ${number}`)
         await sleep(1000)
@@ -492,13 +628,12 @@ async function autoReconnectFromMongoDB() {
   }
 }
 
-// ============ MIGRATION DE L'ANCIENNE SESSION UNIQUE (si elle existe) ============
+// ============ MIGRATION DE L'ANCIENNE SESSION UNIQUE ============
 async function migrateOldSession() {
   const oldSessionPath = path.join(__dirname, 'sessions', 'creds.json')
   if (fs.existsSync(oldSessionPath)) {
     try {
       const creds = JSON.parse(fs.readFileSync(oldSessionPath, 'utf8'))
-      // Extraire le numéro depuis creds
       const meId = creds.me?.id
       if (meId) {
         let number = meId.split(':')[0].replace(/[^0-9]/g, '')
@@ -519,18 +654,14 @@ async function migrateOldSession() {
 }
 
 // ============ CONFIGURATION EXPRESS ============
-// ============ CONFIGURATION EXPRESS ============
 const app = express()
 const port = process.env.PORT || 9090
 
-// Ajoute ces deux lignes pour gérer CORS
-const cors = require('cors')
-app.use(cors()) // Autorise toutes les origines (pour la production, tu peux restreindre)
-
+app.use(cors())
 app.use(bodyparser.json())
 app.use(bodyparser.urlencoded({ extended: true }))
 
-// Route de base (inchangée)
+// Route de base — pairing
 app.get("/", async (req, res) => {
   const { number } = req.query
   if (!number) {
@@ -539,7 +670,7 @@ app.get("/", async (req, res) => {
   await EmpirePair(number, res)
 })
 
-// Nouvelle route : status
+// Route : status
 app.get('/status', async (req, res) => {
   const { number } = req.query
   if (!number) {
@@ -568,7 +699,7 @@ app.get('/status', async (req, res) => {
   })
 })
 
-// Nouvelle route : disconnect
+// Route : disconnect
 app.get('/disconnect', async (req, res) => {
   const { number } = req.query
   if (!number) return res.status(400).send({ error: 'Number parameter is required' })
@@ -590,7 +721,7 @@ app.get('/disconnect', async (req, res) => {
   }
 })
 
-// Nouvelle route : active
+// Route : active
 app.get('/active', (req, res) => {
   res.status(200).send({
     count: activeSockets.size,
@@ -598,7 +729,7 @@ app.get('/active', (req, res) => {
   })
 })
 
-// Nouvelle route : ping
+// Route : ping
 app.get('/ping', (req, res) => {
   res.status(200).send({
     status: 'active',
@@ -607,7 +738,7 @@ app.get('/ping', (req, res) => {
   })
 })
 
-// Nouvelle route : connect-all
+// Route : connect-all
 app.get('/connect-all', async (req, res) => {
   try {
     const numbers = await getAllNumbersFromMongoDB()
@@ -620,7 +751,12 @@ app.get('/connect-all', async (req, res) => {
         results.push({ number, status: 'already_connected' })
         continue
       }
-      const mockRes = { headersSent: false, send: () => {}, status: () => mockRes, setHeader: () => {} }
+      const mockRes = {
+        headersSent: false,
+        send: () => {},
+        status: function() { return this },
+        setHeader: () => {}
+      }
       await EmpirePair(number, mockRes)
       results.push({ number, status: 'connection_initiated' })
     }
@@ -631,7 +767,7 @@ app.get('/connect-all', async (req, res) => {
   }
 })
 
-// Nouvelle route : reconnect
+// Route : reconnect
 app.get('/reconnect', async (req, res) => {
   try {
     const numbers = await getAllNumbersFromMongoDB()
@@ -644,7 +780,12 @@ app.get('/reconnect', async (req, res) => {
         results.push({ number, status: 'already_connected' })
         continue
       }
-      const mockRes = { headersSent: false, send: () => {}, status: () => mockRes, setHeader: () => {} }
+      const mockRes = {
+        headersSent: false,
+        send: () => {},
+        status: function() { return this },
+        setHeader: () => {}
+      }
       try {
         await EmpirePair(number, mockRes)
         results.push({ number, status: 'connection_initiated' })
@@ -661,7 +802,7 @@ app.get('/reconnect', async (req, res) => {
   }
 })
 
-// Nouvelle route : update-config
+// Route : update-config
 app.get('/update-config', async (req, res) => {
   const { number, config: configString } = req.query
   if (!number || !configString) {
@@ -681,7 +822,9 @@ app.get('/update-config', async (req, res) => {
   const otp = Math.floor(100000 + Math.random() * 900000).toString()
   await saveOTPToMongoDB(sanitizedNumber, otp, newConfig)
   try {
-    await socket.sendMessage(jidNormalizedUser(socket.user.id), { text: `🔐 Your OTP for config update is: *${otp}*\nThis OTP will expire in 5 minutes.` })
+    await socket.sendMessage(jidNormalizedUser(socket.user.id), {
+      text: `🔐 Your OTP for config update is: *${otp}*\nThis OTP will expire in 5 minutes.`
+    })
     res.status(200).send({ status: 'otp_sent', message: 'OTP sent to your number' })
   } catch (error) {
     await OTP.findOneAndDelete({ number: sanitizedNumber })
@@ -689,7 +832,7 @@ app.get('/update-config', async (req, res) => {
   }
 })
 
-// Nouvelle route : verify-otp
+// Route : verify-otp
 app.get('/verify-otp', async (req, res) => {
   const { number, otp } = req.query
   if (!number || !otp) {
@@ -704,7 +847,9 @@ app.get('/verify-otp', async (req, res) => {
     await updateUserConfigInMongoDB(sanitizedNumber, verification.config)
     const socket = activeSockets.get(sanitizedNumber)
     if (socket) {
-      await socket.sendMessage(jidNormalizedUser(socket.user.id), { text: '✅ Your configuration has been successfully updated!' })
+      await socket.sendMessage(jidNormalizedUser(socket.user.id), {
+        text: '✅ Your configuration has been successfully updated!'
+      })
     }
     res.status(200).send({ status: 'success', message: 'Config updated successfully in MongoDB' })
   } catch (error) {
@@ -713,7 +858,7 @@ app.get('/verify-otp', async (req, res) => {
   }
 })
 
-// Nouvelle route : getabout
+// Route : getabout
 app.get('/getabout', async (req, res) => {
   const { number, target } = req.query
   if (!number || !target) {
@@ -728,7 +873,9 @@ app.get('/getabout', async (req, res) => {
   try {
     const statusData = await socket.fetchStatus(targetJid)
     const aboutStatus = statusData.status || 'No status available'
-    const setAt = statusData.setAt ? moment(statusData.setAt).tz('Asia/Colombo').format('YYYY-MM-DD HH:mm:ss') : 'Unknown'
+    const setAt = statusData.setAt
+      ? moment(statusData.setAt).tz('Asia/Colombo').format('YYYY-MM-DD HH:mm:ss')
+      : 'Unknown'
     res.status(200).send({
       status: 'success',
       number: target,
@@ -743,30 +890,20 @@ app.get('/getabout', async (req, res) => {
 
 // ============ DÉMARRAGE DU SERVEUR ============
 app.listen(port, '0.0.0.0', () => {
-  console.log(`Server listening on port http://0.0.0.0:${port}`)
+  console.log(`🚀 Server listening on http://0.0.0.0:${port}`)
 })
 
 // ============ LANCEMENT DES SESSIONS AU DÉMARRAGE ============
 setTimeout(async () => {
-  // Migrer l'ancienne session si elle existe
   await migrateOldSession()
-  // Reconnecter toutes les sessions MongoDB
   await autoReconnectFromMongoDB()
 }, 8000)
+  
 
-// ============ FONCTIONS ORIGINALES DE POPKID-MD (conservées) ============
-// (tout le reste du code original, y compris les événements messages, plugins, etc.)
-// ...
+// Voilà ce qui a changé par rapport à ton original :
 
-// NOTE: Pour ne pas alourdir, nous conservons l'intégralité du code original de gestion des messages,
-// des plugins, des événements group-participants, etc. Il faut simplement remplacer la fonction connectToWA
-// par notre nouvelle logique. Dans le code original, il y avait une fonction connectToWA() qui était appelée.
-// Nous l'avons remplacée par le système ci-dessus. Les gestionnaires d'événements (messages.upsert, etc.)
-// sont déjà définis plus bas dans le code original. Ils fonctionneront avec le socket `conn` qui est
-// la première session connectée (celle du bot principal). Pour supporter plusieurs sockets, il faudrait
-// adapter les gestionnaires pour qu'ils traitent les messages de tous les sockets. Mais par souci de simplicité,
-// nous gardons le comportement original : un seul bot principal géré par `conn`, et les autres numéros connectés
-// via les endpoints n'auront pas de gestion de plugins. Si vous souhaitez que chaque numéro exécute les plugins,
-// il faudrait attacher les gestionnaires à chaque socket créé dans EmpirePair. C'est possible en appelant
-// les mêmes fonctions que celles utilisées pour `conn` (ex: conn.ev.on('messages.upsert', ...)) mais en les
-// adaptant pour qu'elles utilisent le socket spécifique. Je peux vous aider à le faire si nécessaire.
+// **`loadPlugins()`** — charge tous les fichiers de `/plugins/` une seule fois (Node.js met en cache les `require`, donc pas de double chargement si plusieurs numéros se connectent).
+
+//**`attachMessageHandler(socket, number)`** — attache un listener `messages.upsert` propre à **chaque socket**, ce qui permet à chaque utilisateur connecté d'utiliser les commandes indépendamment. Il gère aussi les messages éphémères, les boutons, les listes, et vérifie `fromMe` pour les commandes owner.
+
+//**Dans `connection === 'open'`** — appel de `loadPlugins()` puis `attachMessageHandler(socket, sanitizedNumber)` juste après la connexion, avant le message de bienvenue (qui affiche maintenant le nombre de commandes chargées).

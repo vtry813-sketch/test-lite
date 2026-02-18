@@ -7,7 +7,7 @@ function convertToBool(text, fault = 'true') {
 
 module.exports = {
     // ====== Connexion MongoDB (ajouté) ======
-    MONGODB_URI: process.env.MONGODB_URI || "mongodb+srv://manaheva05_db_user:pFOdnnWYWLaDqH9I@inconnuboy.afh6ipt.mongodb.net/?appName=Inconnuboy",
+    MONGODB_URI: process.env.MONGODB_URI || "mongodb+srv://gunathilakalayanal56_db_user:mI7a7iSgYkgVbcuX@cluster0.wcwukox.mongodb.net/",
 
     // ====== Session (optionnel, plus utilisé si téléchargement Mega supprimé) ======
     // SESSION_ID: process.env.SESSION_ID || "POPKID;;;HcURgQQT#el1w53_DkYDDW13cEvqw0q80vHfOfnyZO_cyAL0mAUU",
